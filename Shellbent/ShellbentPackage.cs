@@ -183,7 +183,7 @@ namespace Shellbent
 
 			// create models of IDE/Solution
 			ideModel = new Models.IDEModel(DTE);
-			ideModel.WindowShown += OnWindowShowing;
+			ideModel.WindowShown += (EnvDTE.Window w) => UpdateModelsAsync();
 			ideModel.IdeModeChanged += (dbgDebugMode mode) => m_Mode = mode;
 			ideModel.StartupComplete += UpdateModelsAsync;
 
@@ -268,11 +268,6 @@ namespace Shellbent
 			}
 		}
 
-		private void OnWindowShowing(EnvDTE.Window Window)
-		{
-			//ChangeWindowTitleColorAsync(TitleBarColor);
-		}
-
 		private void UpdateModelsAsync()
 		{
 			var d = TitleBarData;
@@ -292,6 +287,8 @@ namespace Shellbent
 				{
 					x.UpdateTitleBar(d);
 				}
+
+				ChangeWindowTitle(d.TitleBarText);
 			});
 		}
 
@@ -322,31 +319,6 @@ namespace Shellbent
 
 				return Tuple.Create(lost, discovered);
 			}
-		}
-
-		private void ChangeWindowTitleColor(System.Drawing.Color? color)
-		{
-			var (lost, _) = WindowsLostAndDiscovered;
-
-			// set old models' colour back to original
-			foreach (var x in lost)
-			{
-				x.SetTitleBarColor(null);
-			}
-
-			// colour all models
-			foreach (var x in knownWindowModels)
-			{
-				x.SetTitleBarColor(color);
-			}
-		}
-
-		private void ChangeWindowTitleColorAsync(System.Drawing.Color? color)
-		{
-			Application.Current?.Dispatcher?.InvokeAsync(() =>
-			{
-				ChangeWindowTitleColor(color);
-			});
 		}
 
 		private void ChangeWindowTitle(string title)
