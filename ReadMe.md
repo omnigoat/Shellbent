@@ -1,13 +1,13 @@
-# TitleBarNone
+# Shellbent
 
 Hello.
 
 
 ## what it is
-TitleBarNone allows you to change Visual Studio's title bar's text & colour, based off the file-system path of the solution file, and/or the repository information of either git, svn, or versionr source-control systems.
+Shellbent allows you to change Visual Studio's title bar's text & colour, based off the file-system path of the solution file, and/or the repository information of either git, svn, or versionr source-control systems.
 
 ## settings
-To use TitleBarNone, place a file called `.title-bar-none` in your user directory. TitleBarNone will watch the file and make changes in real time, so you can iterate on your works of art.
+To use Shellbent, place a file called `.title-bar-none` in your user directory. Shellbent will watch the file and make changes in real time, so you can iterate on your works of art.
 
 ## pattern groups
 This file contains pattern-groups definining the behaviour of the title bar under various circumstances. These pattern-groups are activated when the associated _filter_ is satisfied. Pattern-groups are allowed to override previously seen pattern-groups, sequentially down the file (a.k.a. last takes precedence).
