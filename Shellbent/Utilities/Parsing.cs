@@ -14,7 +14,51 @@ namespace Shellbent.Utilities
 {
 	static class Parsing
 	{
-		//public static List<>
+		static bool HasProperty(this object self, string name)
+		{
+			return (self is IDictionary<string, object> d) && d.ContainsKey(name);
+		}
+
+		public static List<SettingsTriplet> ParseYaml(string text)
+		{
+			List<SettingsTriplet> root;
+			try
+			{
+				root = new YamlDotNet.Serialization.Deserializer().Deserialize<List<SettingsTriplet>>(text);
+			}
+			catch
+			{
+				root = new List<SettingsTriplet>();
+			}
+
+			var k = root[0].Predicates;
+
+			//return root
+			//	.Select(x => ParseYamlGroup(x as Dictionary<object, object>))
+			//	.ToList();
+			return root;
+		}
+
+		private static SettingsTriplet ParseYamlGroup(Dictionary<object, object> x)
+		{
+			var r = new SettingsTriplet();
+
+			if (x.Keys.Contains("source-control"))
+			{
+				ParseSourceControlFilter(r, x["source-control"] as string);
+			}
+
+			if (x.Keys.Contains("item-name"))
+			{
+				ParseItemNameFilter(r, x["item-name"] as string);
+			}
+
+
+
+			return r;
+		}
+
+
 		public static List<SettingsTriplet> ParseLines(List<string> lines)
 		{
 			var triplets = new List<SettingsTriplet>();
@@ -98,6 +142,32 @@ namespace Shellbent.Utilities
 				}
 			}
 		}
+
+		static void ParseSourceControlFilter(SettingsTriplet triplet, string filterString)
+		{
+			var filters = filterString
+				.Split(new char[] { ',' })
+				.Select(x => x.Trim())
+				.Where(x => !string.IsNullOrEmpty(x))
+				.Select(x =>
+				{
+					var m = Regex.Match(x, @"([a-z-]+)\s*=~\s*(.+)");
+					if (m.Groups.Count == 2)
+						return Tuple.Create(m.Groups[1].Value, "");
+					else if (m.Groups.Count == 3)
+						return Tuple.Create(m.Groups[1].Value, m.Groups[2].Value);
+					else
+						throw new InvalidDataException(string.Format($"bad predicate: {x}"));
+				});
+
+			triplet.PatternDependencies.Concat(filters);
+		}
+
+		static void ParseItemNameFilter(SettingsTriplet triplet, string filterString)
+		{
+			triplet.PatternDependencies.Add(Tuple.Create("item-name", filterString));
+		}
+
 
 		static void ParseFilter(SettingsTriplet triplet, string filterString)
 		{

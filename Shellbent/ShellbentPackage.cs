@@ -26,11 +26,9 @@ namespace Shellbent
 	}
 
 	[PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
-	//[ProvideService(typeof(]
 	[InstalledProductRegistration("#110", "#112", "1.0", IconResourceID = 400)]
 	[Guid(PackageGuidString)]
 	[SuppressMessage("StyleCop.CSharp.DocumentationRules", "SA1650:ElementDocumentationMustBeSpelledCorrectly", Justification = "pkgdef, VS and vsixmanifest are valid VS terms")]
-	//[ProvideAutoLoad(UIContextGuids.NoSolution)]
 	[ProvideAutoLoad(UIContextGuids.NoSolution, PackageAutoLoadFlags.BackgroundLoad)]
 	[ProvideOptionPage(typeof(SettingsPageGrid), "Title Bar None", "Settings", 101, 1000, true)]
 	public class ShellbentPackage : AsyncPackage
@@ -81,92 +79,6 @@ namespace Shellbent
 				.Concat(m_SolutionsFileChangeProvider?.Triplets ?? new List<Settings.SettingsTriplet>())
 				.Concat(m_VsOptionsChangeProvider?.Triplets ?? new List<Settings.SettingsTriplet>())
 				.Concat(m_DefaultsChangeProvider.Triplets);
-
-#if false
-				
-		public string TitleBarText
-		{
-			get
-			{
-				string pattern = Pattern;
-				if (string.IsNullOrEmpty(pattern))
-					return null;
-
-				var state = new VsState()
-				{
-					Resolvers = Resolvers,
-					Mode = m_Mode,
-					Solution = DTE.Solution
-				};
-
-				if (Parsing.ParseFormatString(out string transformed, state, pattern))
-				{
-					return transformed;
-				}
-
-				return null;
-			}
-		}
-
-		public System.Drawing.Color? TitleBarColor
-		{
-			get
-			{
-				if (DTE.Solution.IsOpen)
-					return ColorIfSolutionOpened;
-				else if (DTE.Documents.Count > 0)
-					return ColorIfDocumentOpened;
-				else
-					return ColorIfNothingOpened;
-			}
-		}
-
-
-		public string Pattern
-		{
-			get
-			{
-				if (DTE.Solution.IsOpen)
-					return PatternIfSolutionOpened?.Pattern ?? "";
-				else if (DTE.Documents.Count > 0)
-					return PatternIfDocumentOpened?.Pattern ?? "";
-				else
-					return PatternIfNothingOpened?.Pattern ?? "";
-			}
-		}
-
-
-
-		private System.Drawing.Color? ColorIfNothingOpened => SettingsTriplets
-			.Where(TripletDependenciesAreSatisfied)
-			.Where(x => x.FormatIfNothingOpened?.Color != null)
-			.FirstOrDefault()?.FormatIfNothingOpened?.Color;
-
-		private System.Drawing.Color? ColorIfDocumentOpened => SettingsTriplets
-			.Where(TripletDependenciesAreSatisfied)
-			.Where(x => x.FormatIfDocumentOpened?.Color != null)
-			.FirstOrDefault()?.FormatIfDocumentOpened?.Color;
-
-		private System.Drawing.Color? ColorIfSolutionOpened => SettingsTriplets
-			.Where(TripletDependenciesAreSatisfied)
-			.Where(x => x.FormatIfSolutionOpened?.Color != null)
-			.FirstOrDefault()?.FormatIfSolutionOpened?.Color;
-
-		private Settings.TitleBarFormat PatternIfNothingOpened => SettingsTriplets
-			.Where(TripletDependenciesAreSatisfied)
-			.Where(x => !string.IsNullOrEmpty(x.FormatIfNothingOpened?.Pattern))
-			.FirstOrDefault()?.FormatIfNothingOpened;
-
-		private Settings.TitleBarFormat PatternIfDocumentOpened => SettingsTriplets
-			.Where(TripletDependenciesAreSatisfied)
-			.Where(x => !string.IsNullOrEmpty(x.FormatIfDocumentOpened?.Pattern))
-			.FirstOrDefault()?.FormatIfDocumentOpened;
-
-		private Settings.TitleBarFormat PatternIfSolutionOpened => SettingsTriplets
-			.Where(TripletDependenciesAreSatisfied)
-			.Where(x => !string.IsNullOrEmpty(x.FormatIfSolutionOpened?.Pattern))
-			.FirstOrDefault()?.FormatIfSolutionOpened;
-#endif
 
 		private bool TripletDependenciesAreSatisfied(Settings.SettingsTriplet triplet)
 		{
@@ -253,9 +165,8 @@ namespace Shellbent
 			{
 				Application.Current.Dispatcher?.Invoke(() =>
 				{
-					var outWindow = GetGlobalService(typeof(SVsOutputWindow)) as IVsOutputWindow;
 					var generalPaneGuid = VSConstants.OutputWindowPaneGuid.DebugPane_guid;
-					if (outWindow != null)
+					if (GetGlobalService(typeof(SVsOutputWindow)) is IVsOutputWindow outWindow)
 					{
 						outWindow.GetPane(ref generalPaneGuid, out IVsOutputWindowPane generalPane);
 						generalPane.OutputString("Shellbent: " + string.Format(str, args) + "\r\n");

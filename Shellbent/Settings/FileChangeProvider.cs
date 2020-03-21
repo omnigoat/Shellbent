@@ -44,7 +44,9 @@ namespace Shellbent.Settings
 					if (!file.Exists || file.Name != Defaults.ConfgFileName)
 						return;
 
+					Parsing.ParseYaml(File.ReadAllText(FilePath));
 					lines = File.ReadAllLines(FilePath).ToList();
+
 					break;
 				}
 				catch (IOException)
