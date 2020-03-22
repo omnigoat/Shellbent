@@ -106,44 +106,27 @@ namespace Shellbent.Settings
 			public string Text;
 
 			[YamlMember(Alias = "foreground")]
-			public System.Windows.Media.Color Foreground;
+			public Color Foreground;
 
 			[YamlMember(Alias = "background")]
-			public System.Windows.Media.Color Background;
+			public Color Background;
 		}
 
 
 
+		// when no predicate is specified, we assume the user wants
+		// these settings to apply to the "empty state" of the IDE
 		[YamlMember(Alias = "predicates")]
-		public string predicateString;
+		public List<string> predicateString = new List<string>();
 
 		private List<Tuple<string, string>> predicates;
-		public List<Tuple<string, string>> Predicates
-		{
-			get
-			{
-				if (predicates == null && !string.IsNullOrEmpty(predicateString))
-				{
-					predicates = predicateString
-						.Split(new char[] { ';' })
-						.Select(x => x.Trim())
-						.Where(x => !string.IsNullOrEmpty(x))
-						.Select(x =>
-						{
-							var m = System.Text.RegularExpressions.Regex.Match(x, @"([a-z-]+)(\s*=~\s*(.+))?");
-							if (m.Groups[3].Success)
-								return Tuple.Create(m.Groups[1].Value, m.Groups[3].Value);
-							else if (m.Success)
-								return Tuple.Create(m.Groups[1].Value, "");
-							else
-								throw new InvalidOperationException(string.Format($"bad predicate: {x}"));
-						})
-						.ToList();
-				}
-
-				return predicates ?? new List<Tuple<string, string>>();
-			}
-		}
+		public List<Tuple<string, string>> Predicates => predicates ??
+			(predicates = predicateString
+				.Select(x => x.Trim())
+				.Where(x => !string.IsNullOrEmpty(x))
+				.Select(Utilities.Parsing.ParsePredicate)
+				.DefaultIfEmpty(Tuple.Create("empty", ""))
+				.ToList());
 
 
 		[YamlMember(Alias = "title-bar-caption")]
@@ -152,8 +135,11 @@ namespace Shellbent.Settings
 		[YamlMember(Alias = "title-bar-foreground")]
 		public Color TitleBarForeground;
 
-		[YamlMember(Alias = "title-bar-background")]
-		public Color TitleBarBackground;
+		[YamlMember(Alias = "vs2017-title-bar-background")]
+		public Color Vs2017TitleBarBackground;
+
+		[YamlMember(Alias = "vs2019-title-bar-background")]
+		public Color Vs2019TitleBarBackground;
 
 		[YamlMember(Alias = "blocks")]
 		public List<BlockSettings> Blocks;

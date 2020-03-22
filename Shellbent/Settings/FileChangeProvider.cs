@@ -44,27 +44,18 @@ namespace Shellbent.Settings
 					if (!file.Exists || file.Name != Defaults.ConfgFileName)
 						return;
 
-					Parsing.ParseYaml(File.ReadAllText(FilePath));
-					lines = File.ReadAllLines(FilePath).ToList();
+					var triplets = Parsing.ParseYaml(File.ReadAllText(FilePath));
+					if (!triplets.Equals(m_Triplets))
+					{
+						m_Triplets = triplets;
+						Changed?.Invoke();
+					}
 
 					break;
 				}
 				catch (IOException)
 				{
 				}
-			}
-
-			if (lines.Count == 0)
-			{
-				return;
-			}
-
-			var triplets = Parsing.ParseLines(lines);
-
-			if (!triplets.Equals(m_Triplets))
-			{
-				m_Triplets = triplets;
-				Changed?.Invoke();
 			}
 		}
 
@@ -77,15 +68,8 @@ namespace Shellbent.Settings
 
 
 		private readonly string WatchingDirectory;
-		private FileSystemWatcher m_Watcher;
-		private readonly Regex m_NothingTitleRegex = new Regex("nothing-title: (.+)$");
-		private readonly Regex m_DocumentTitleRegex = new Regex("document-title: (.+)$");
-		private readonly Regex m_SolutionTitleRegex = new Regex("solution-title: (.+)$");
-
-		private Regex m_NothingColorRegex = new Regex("nothing-color: (.+)$");
-		private Regex m_DocumentColorRegex = new Regex("document-color: (.+)$");
-		private Regex m_SolutionColorRegex = new Regex("solution-color: (.+)$");
-
+		private readonly FileSystemWatcher m_Watcher;
+		
 		private List<SettingsTriplet> m_Triplets = new List<SettingsTriplet>();
 
 	}

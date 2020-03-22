@@ -14,11 +14,6 @@ namespace Shellbent.Utilities
 {
 	static class Parsing
 	{
-		static bool HasProperty(this object self, string name)
-		{
-			return (self is IDictionary<string, object> d) && d.ContainsKey(name);
-		}
-
 		public static List<SettingsTriplet> ParseYaml(string text)
 		{
 			List<SettingsTriplet> root;
@@ -31,31 +26,7 @@ namespace Shellbent.Utilities
 				root = new List<SettingsTriplet>();
 			}
 
-			var k = root[0].Predicates;
-
-			//return root
-			//	.Select(x => ParseYamlGroup(x as Dictionary<object, object>))
-			//	.ToList();
 			return root;
-		}
-
-		private static SettingsTriplet ParseYamlGroup(Dictionary<object, object> x)
-		{
-			var r = new SettingsTriplet();
-
-			if (x.Keys.Contains("source-control"))
-			{
-				ParseSourceControlFilter(r, x["source-control"] as string);
-			}
-
-			if (x.Keys.Contains("item-name"))
-			{
-				ParseItemNameFilter(r, x["item-name"] as string);
-			}
-
-
-
-			return r;
 		}
 
 
@@ -98,6 +69,17 @@ namespace Shellbent.Utilities
 			triplets.Reverse();
 
 			return triplets;
+		}
+
+		public static Tuple<string, string> ParsePredicate(string x)
+		{
+			var m = System.Text.RegularExpressions.Regex.Match(x, @"([a-z-]+)(\s*=~\s*(.+))?");
+			if (m.Groups[3].Success)
+				return Tuple.Create(m.Groups[1].Value, m.Groups[3].Value);
+			else if (m.Success)
+				return Tuple.Create(m.Groups[1].Value, "");
+			else
+				throw new InvalidOperationException(string.Format($"bad predicate: {x}"));
 		}
 
 		static void ParseGroup(ref List<SettingsTriplet> triplets, List<string> lines)
