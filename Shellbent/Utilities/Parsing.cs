@@ -105,9 +105,9 @@ namespace Shellbent.Utilities
 
 				var drawColor = maybeColor.NullOr(c => Color.FromRgb(c.R, c.G, c.B));
 
-				triplet.FormatIfNothingOpened = new TitleBarFormat(null, drawColor);
-				triplet.FormatIfDocumentOpened = new TitleBarFormat(document, drawColor);
-				triplet.FormatIfSolutionOpened = new TitleBarFormat(solution, drawColor);
+				//triplet.FormatIfNothingOpened = new TitleBarFormat(null, drawColor);
+				//triplet.FormatIfDocumentOpened = new TitleBarFormat(document, drawColor);
+				//triplet.FormatIfSolutionOpened = new TitleBarFormat(solution, drawColor);
 				triplets.Add(triplet);
 			}
 		}
@@ -142,12 +142,12 @@ namespace Shellbent.Utilities
 						throw new InvalidDataException(string.Format($"bad predicate: {x}"));
 				});
 
-			triplet.PatternDependencies.Concat(filters);
+			//triplet.PatternDependencies.Concat(filters);
 		}
 
 		static void ParseItemNameFilter(SettingsTriplet triplet, string filterString)
 		{
-			triplet.PatternDependencies.Add(Tuple.Create("item-name", filterString));
+			//triplet.PatternDependencies.Add(Tuple.Create("item-name", filterString));
 		}
 
 
@@ -164,11 +164,11 @@ namespace Shellbent.Utilities
 					var tag = match.Groups[1].Value;
 					var expr = match.Groups[2].Value;
 
-					triplet.PatternDependencies.Add(Tuple.Create(tag, expr));
+					//triplet.PatternDependencies.Add(Tuple.Create(tag, expr));
 				}
 				else if (!string.IsNullOrEmpty(filter))
 				{
-					triplet.PatternDependencies.Add(Tuple.Create(filter, ""));
+					//triplet.PatternDependencies.Add(Tuple.Create(filter, ""));
 				}
 			}
 		}

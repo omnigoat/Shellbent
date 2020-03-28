@@ -13,12 +13,14 @@ namespace Shellbent.Settings
 			SettingsPage = settingsPage;
 			SettingsPage.SettingsChanged += SettingsPage_SettingsChanged;
 
+#if false
 			triplet.FormatIfNothingOpened = SettingsPage.PatternIfNothingOpen;
 			triplet.FormatIfDocumentOpened = SettingsPage.PatternIfDocumentOpen;
 			triplet.FormatIfSolutionOpened = SettingsPage.PatternIfSolutionOpen;
 
 			gitTriplet.PatternDependencies.Add(Tuple.Create("git", ""));
 			gitTriplet.FormatIfSolutionOpened = SettingsPage.GitPatternIfOpen;
+#endif
 		}
 
 		public override event ChangedEvent Changed;
@@ -26,6 +28,7 @@ namespace Shellbent.Settings
 
 		private void SettingsPage_SettingsChanged(object sender, EventArgs e)
 		{
+#if false
 			bool requiresUpdate =
 				(triplet.FormatIfNothingOpened != SettingsPage.PatternIfNothingOpen) ||
 				(triplet.FormatIfDocumentOpened != SettingsPage.PatternIfDocumentOpen) ||
@@ -39,6 +42,7 @@ namespace Shellbent.Settings
 
 			if (requiresUpdate)
 				Changed?.Invoke();
+#endif
 		}
 
 		protected override void DisposeImpl()

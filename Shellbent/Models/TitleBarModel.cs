@@ -72,8 +72,9 @@ namespace Shellbent.Models
 	internal struct TitleBarData
 	{
 		public string TitleBarText;
-		public Brush TitleBarBackgroundColor;
 		public Brush TitleBarForegroundColor;
+		public Brush Vs2017TitleBarBackgroundColor;
+		public Brush Vs2019TitleBarBackgroundColor;
 
 		public List<TitleBarData> Infos;
 	}
@@ -285,7 +286,7 @@ namespace Shellbent.Models
 			{
 				{
 					System.Reflection.PropertyInfo property = MainTitleBar.GetType().GetProperty("Background");
-					property.SetValue(MainTitleBar, data.TitleBarBackgroundColor ?? defaultMainTitleBarBackground, null);
+					property.SetValue(MainTitleBar, data.Vs2019TitleBarBackgroundColor ?? defaultMainTitleBarBackground, null);
 				}
 
 				// title-bar foreground

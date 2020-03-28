@@ -11,9 +11,9 @@ namespace Shellbent.Settings
 		public override List<SettingsTriplet> Triplets => new List<SettingsTriplet>
 		{
 			new SettingsTriplet {
-				FormatIfNothingOpened = new TitleBarFormat(Defaults.PatternIfNothingOpen),
-				FormatIfDocumentOpened = new TitleBarFormat(Defaults.PatternIfDocumentOpen),
-				FormatIfSolutionOpened = new TitleBarFormat(Defaults.PatternIfSolutionOpen)
+				//FormatIfNothingOpened = new TitleBarFormat(Defaults.PatternIfNothingOpen),
+				//FormatIfDocumentOpened = new TitleBarFormat(Defaults.PatternIfDocumentOpen),
+				//FormatIfSolutionOpened = new TitleBarFormat(Defaults.PatternIfSolutionOpen)
 			}
 		};
 

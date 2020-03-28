@@ -53,15 +53,17 @@ namespace Shellbent
 		internal Models.TitleBarData TitleBarData =>
 			SettingsTriplets
 				.Where(TripletDependenciesAreSatisfied)
-				.Select(TitleBarFormatRightNow)
+				//.Select(TitleBarFormatRightNow)
 				//.Concat(new[] { new Settings.TitleBarFormat("") { BackgroundBrush = SystemColors.ActiveBorderBrush, ForegroundBrush = SystemColors.ActiveCaptionTextBrush } })
 				.Aggregate(new Models.TitleBarData(), (acc, x) =>
 				{
-					acc.TitleBarBackgroundColor = acc.TitleBarBackgroundColor ?? x.BackgroundBrush; //  ?? SystemColors.ActiveBorderBrush;
-					acc.TitleBarForegroundColor = acc.TitleBarForegroundColor ?? x.ForegroundBrush; //  ?? SystemColors.ActiveCaptionTextBrush;
+					acc.TitleBarForegroundColor = acc.TitleBarForegroundColor ?? new SolidColorBrush(x.TitleBarForeground);
+					acc.Vs2017TitleBarBackgroundColor = acc.Vs2017TitleBarBackgroundColor ?? new SolidColorBrush(x.Vs2017TitleBarBackground);
+					acc.Vs2019TitleBarBackgroundColor = acc.Vs2019TitleBarBackgroundColor ?? new SolidColorBrush(x.Vs2019TitleBarBackground);
 					return acc;
 				});
 
+#if false
 		private Settings.TitleBarFormat TitleBarFormatRightNow(Settings.SettingsTriplet st)
 		{
 			if (DTE.Solution.IsOpen)
@@ -71,6 +73,7 @@ namespace Shellbent
 			else
 				return st.FormatIfNothingOpened;
 		}
+#endif
 
 		private IEnumerable<Resolver> Resolvers => m_Resolvers.AsEnumerable().Reverse();
 
@@ -82,7 +85,7 @@ namespace Shellbent
 
 		private bool TripletDependenciesAreSatisfied(Settings.SettingsTriplet triplet)
 		{
-			return triplet.PatternDependencies.All(d => Resolvers.Any(r => r.SatisfiesDependency(d)));
+			return triplet.Predicates.All(d => Resolvers.Any(r => r.SatisfiesDependency(d)));
 		}
 
 		protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)

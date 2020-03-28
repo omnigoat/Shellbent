@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using System.Windows.Media;
 using YamlDotNet.Core;
+using YamlDotNet.Core.Events;
 using YamlDotNet.Serialization;
 
 namespace Shellbent.Settings
@@ -71,16 +72,18 @@ namespace Shellbent.Settings
 #if false
 	public class DefaultableColor : IYamlConvertible
 	{
-		public DefaultableColor(System.Windows.Media.Color x)
+		public DefaultableColor(Color x)
 		{
-			Value = x;
+			Va lue = x;
 		}
 
-		System.Windows.Media.Color Value;
+		Color Value;
 
 		public void Read(IParser parser, Type expectedType, ObjectDeserializer nestedObjectDeserializer)
 		{
-			Value = (System.Windows.Media.Color)nestedObjectDeserializer(typeof(System.Windows.Media.Color));
+			if (parser.TryConsume<Scalar>(out Scalar s))
+			if (parser.TryConsume<ParsingEvent>)
+			Value = (Color)nestedObjectDeserializer(typeof(Color));
 		}
 
 		public void Write(IEmitter emitter, ObjectSerializer nestedObjectSerializer)
@@ -93,13 +96,6 @@ namespace Shellbent.Settings
 
 	public class SettingsTriplet
 	{
-		public List<Tuple<string, string>> PatternDependencies = new List<Tuple<string, string>>();
-
-		public TitleBarFormat FormatIfNothingOpened;
-		public TitleBarFormat FormatIfDocumentOpened;
-		public TitleBarFormat FormatIfSolutionOpened;
-
-
 		public class BlockSettings
 		{
 			[YamlMember(Alias = "text")]
@@ -111,7 +107,6 @@ namespace Shellbent.Settings
 			[YamlMember(Alias = "background")]
 			public Color Background;
 		}
-
 
 
 		// when no predicate is specified, we assume the user wants
@@ -134,6 +129,8 @@ namespace Shellbent.Settings
 
 		[YamlMember(Alias = "title-bar-foreground")]
 		public Color TitleBarForeground;
+		public Brush TitleBarForegroundBrush =>
+			(TitleBarForeground == null) ? null : new SolidColorBrush(TitleBarForeground);
 
 		[YamlMember(Alias = "vs2017-title-bar-background")]
 		public Color Vs2017TitleBarBackground;
