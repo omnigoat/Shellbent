@@ -50,6 +50,9 @@ namespace Shellbent
 			private set;
 		}
 
+		internal VsState CurrentVsState =>
+			new VsState() { Resolvers = Resolvers, Mode = DTE.Debugger.CurrentMode, Solution = DTE.Solution };
+
 		internal Models.TitleBarData TitleBarData =>
 			SettingsTriplets
 				.Where(TripletDependenciesAreSatisfied)
@@ -65,7 +68,7 @@ namespace Shellbent
 					{
 						return new Models.TitleBarInfoBlockData()
 						{
-							Text = ti.Text,
+							Text = Parsing.ParseFormatString(CurrentVsState, ti.Text),
 							TextBrush = ti.Foreground.NullOr(c => new SolidColorBrush(c)),
 							BackgroundBrush = ti.Background.NullOr(c => new SolidColorBrush(c))
 						};
@@ -164,9 +167,9 @@ namespace Shellbent
 			var d = TitleBarData;
 
 			// we are the UI thread
-			//var (_, discovered) = WindowsLostAndDiscovered;
-			//foreach (var w in discovered)
-			//	w.UpdateTitleBar(d);
+			var (_, discovered) = WindowsLostAndDiscovered;
+			foreach (var w in discovered)
+				w.UpdateTitleBar(d);
 		}
 
 		private void OnSolutionOpened(Solution solution)

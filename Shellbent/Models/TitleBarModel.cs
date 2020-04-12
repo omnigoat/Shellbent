@@ -409,11 +409,14 @@ namespace Shellbent.Models
 			{
 				var r = new Border
 				{
-					//Background = data.BackgroundBrush ?? defaultPanelTitleBar,
 					BorderBrush = border.BorderBrush,
 					BorderThickness = border.BorderThickness,
 					Padding = new Thickness(border.Padding.Left, border.Padding.Top, border.Padding.Right, border.Padding.Bottom),
 					DataContext = border.DataContext,
+					HorizontalAlignment = border.HorizontalAlignment,
+					
+					// just a little more separation than 1px
+					Margin = new Thickness(2, 0, 0, 0),
 
 					Child = new Border
 					{
@@ -440,7 +443,7 @@ namespace Shellbent.Models
 				// set background to match the main block
 				r.SetBinding(Border.BackgroundProperty, new Binding()
 				{
-					Source = PrimeTitleInfoBlock.Border,
+					Source = border,
 					Path = new PropertyPath("Background")
 				});
 
@@ -454,11 +457,6 @@ namespace Shellbent.Models
 
 			return null;
 		}
-
-		private Brush defaultPanelTitleBar => (Brush)Application.Current.Resources["BestBrush"];
-		private Brush defaultAccentLightBrush => (Brush)Window.FindResource(EnvironmentColors.AccentLightBrushKey);
-		private Brush defaultAccentMediumBrush => (Brush)Window.FindResource(EnvironmentColors.AccentMediumBrushKey);
-
 
 		private Size MeasureString(TextBlock textBlock, string candidate)
 		{

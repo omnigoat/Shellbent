@@ -35,11 +35,11 @@ namespace Shellbent.Resolvers
 
 			if (d.Item1 == "git-branch")
 			{
-				return GlobMatch(d.Item2, gitBranch);
+				lock (syncLock) return GlobMatch(d.Item2, gitBranch);
 			}
 			else if (d.Item1 == "git-sha")
 			{
-				return GlobMatch(d.Item2, gitSha);
+				lock (syncLock) return GlobMatch(d.Item2, gitSha);
 			}
 			else if (d.Item1 == "git")
 			{
@@ -59,9 +59,11 @@ namespace Shellbent.Resolvers
 		public override string Resolve(VsState state, string tag)
 		{
 			if (tag == "git-branch")
-				return gitBranch;
+				lock (syncLock) return gitBranch;
 			else if (tag == "git-sha")
-				return gitSha;
+				lock (syncLock) return gitSha;
+			else if (tag == "git-commit-time-relative")
+				lock (syncLock) return gitCommitTimeRelative;
 			else
 				return "";
 		}
@@ -80,7 +82,7 @@ namespace Shellbent.Resolvers
 			if (gitPath != null)
 			{
 				fileWatcher = new FileSystemWatcher(gitPath);
-				fileWatcher.Changed += GitFolderChanged;
+				fileWatcher.Changed += (object sender, FileSystemEventArgs e) => ReadInfo();
 				fileWatcher.EnableRaisingEvents = true;
 
 				ReadInfo();
@@ -97,14 +99,9 @@ namespace Shellbent.Resolvers
 			}
 		}
 
-		private void GitFolderChanged(object sender, FileSystemEventArgs e)
-		{
-			ReadInfo();
-		}
-
 		private void ReadInfo()
 		{
-			var p = new System.Diagnostics.Process()
+			using (var p = new System.Diagnostics.Process()
 			{
 				StartInfo = new System.Diagnostics.ProcessStartInfo()
 				{
@@ -115,47 +112,58 @@ namespace Shellbent.Resolvers
 					RedirectStandardOutput = true,
 					WorkingDirectory = gitPath
 				}
-			};
-
-			p.OutputDataReceived += GitBranchReceived;
-			p.Start();
-			p.BeginOutputReadLine();
-
-			var p2 = new System.Diagnostics.Process()
+			})
+			using (var p2 = new System.Diagnostics.Process()
 			{
 				StartInfo = new System.Diagnostics.ProcessStartInfo()
 				{
 					FileName = "git.exe",
-					Arguments = "rev-parse --short HEAD",
+					Arguments = "show -s --format=\"%h%n%cr\" HEAD",
 					UseShellExecute = false,
 					CreateNoWindow = true,
 					RedirectStandardOutput = true,
 					WorkingDirectory = gitPath
 				}
-			};
+			})
+			{
+				p.OutputDataReceived += GitBranchReceived;
+				p.Start();
+				p.BeginOutputReadLine();
 
-			p2.OutputDataReceived += GitShaReceived;
-			p2.Start();
-			p2.BeginOutputReadLine();
+				p2.OutputDataReceived += GitShaReceived;
+				p2.Start();
+				p2.BeginOutputReadLine();
 
-			p.WaitForExit(5000);
-			p2.WaitForExit(5000);
+				// don't wait on the processes, let them dispose and synchronously
+				// update our data whenever it happens
+			}
 		}
 
 		private void GitBranchReceived(object sender, System.Diagnostics.DataReceivedEventArgs e)
 		{
-			if (e.Data != null && gitBranch != e.Data)
+			if (e.Data != null)
 			{
-				gitBranch = e.Data;
+				lock (syncLock)
+				{
+					gitBranch = e.Data;
+				}
+
 				Changed?.Invoke(this);
 			}
 		}
 
 		private void GitShaReceived(object sender, System.Diagnostics.DataReceivedEventArgs e)
 		{
-			if (e.Data != null && gitSha != e.Data)
+			if (e.Data != null)
 			{
-				gitSha = e.Data;
+				var data = e.Data.Split("\n".ToCharArray()).ToList();
+
+				lock (syncLock)
+				{
+					gitSha = data[0];
+					gitCommitTimeRelative = data[1];
+				}
+
 				Changed?.Invoke(this);
 			}
 		}
@@ -163,22 +171,26 @@ namespace Shellbent.Resolvers
 		private static IEnumerable<DirectoryInfo> GetAllParentDirectories(DirectoryInfo directoryToScan)
 		{
 			Stack<DirectoryInfo> ret = new Stack<DirectoryInfo>();
-			GetAllParentDirectories(directoryToScan, ref ret);
+			GetAllParentDirectories(ref ret, directoryToScan);
 			return ret;
 		}
 
-		private static void GetAllParentDirectories(DirectoryInfo directoryToScan, ref Stack<DirectoryInfo> directories)
+		private static void GetAllParentDirectories(ref Stack<DirectoryInfo> directories, DirectoryInfo directoryToScan)
 		{
 			if (directoryToScan == null || directoryToScan.Name == directoryToScan.Root.Name)
 				return;
 
 			directories.Push(directoryToScan);
-			GetAllParentDirectories(directoryToScan.Parent, ref directories);
+			GetAllParentDirectories(ref directories, directoryToScan.Parent);
 		}
 
-		private string gitPath = string.Empty;
+
 		private FileSystemWatcher fileWatcher;
+
+		private readonly object syncLock = new object();
+		private string gitPath = string.Empty;
 		private string gitBranch = "";
 		private string gitSha = "";
+		private string gitCommitTimeRelative = "";
 	}
 }

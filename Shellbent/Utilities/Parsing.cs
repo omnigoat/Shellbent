@@ -36,10 +36,13 @@ namespace Shellbent.Utilities
 				throw new InvalidOperationException(string.Format($"bad predicate: {x}"));
 		}
 
-		public static bool ParseFormatString(out string transformed, VsState state, string pattern)
+		public static string ParseFormatString(VsState state, string pattern)
 		{
 			int i = 0;
-			return ParseImpl(out transformed, state, pattern, ref i, null);
+			if (ParseImpl(out string transformed, state, pattern, ref i, null))
+				return transformed;
+			else
+				return string.Empty;
 		}
 
 		private static bool ParseImpl(out string transformed, VsState state, string pattern, ref int i, string singleDollar)
