@@ -56,10 +56,17 @@ namespace Shellbent
 		internal Models.TitleBarData TitleBarData =>
 			SettingsTriplets
 				.Where(TripletDependenciesAreSatisfied)
-				//.Select(TitleBarFormatRightNow)
-				//.Concat(new[] { new Settings.TitleBarFormat("") { BackgroundBrush = SystemColors.ActiveBorderBrush, ForegroundBrush = SystemColors.ActiveCaptionTextBrush } })
 				.Aggregate(new Models.TitleBarData(), (Models.TitleBarData acc, Settings.SettingsTriplet x) =>
 				{
+					// a selection of resolvers that satisfy the triplet
+					var state = new VsState()
+					{
+						Resolvers = Resolvers, //Resolvers.Where(r => x.Predicates.All(p => r.SatisfiesDependency(p))),
+						Mode = DTE.Debugger.CurrentMode,
+						Solution = DTE.Solution
+					};	
+
+					acc.TitleBarText = acc.TitleBarText ?? Parsing.ParseFormatString(state, x.TitleBarCaption);
 					acc.TitleBarForegroundBrush = acc.TitleBarForegroundBrush ?? x.TitleBarForegroundBrush;
 					acc.Vs2017TitleBarBackgroundBrush = acc.Vs2017TitleBarBackgroundBrush ?? x.Vs2017TitleBarBackgroundBrush;
 					acc.Vs2019TitleBarBackgroundBrush = acc.Vs2019TitleBarBackgroundBrush ?? x.Vs2019TitleBarBackgroundBrush;
@@ -68,7 +75,7 @@ namespace Shellbent
 					{
 						return new Models.TitleBarInfoBlockData()
 						{
-							Text = Parsing.ParseFormatString(CurrentVsState, ti.Text),
+							Text = Parsing.ParseFormatString(state, ti.Text),
 							TextBrush = ti.Foreground.NullOr(c => new SolidColorBrush(c)),
 							BackgroundBrush = ti.Background.NullOr(c => new SolidColorBrush(c))
 						};

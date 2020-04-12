@@ -16,7 +16,7 @@ namespace Shellbent.Resolvers
 		}
 
 		public GitResolver(Models.SolutionModel solutionModel)
-			: base(new[] { "git", "git-branch", "git-sha" })
+			: base(new[] { "git", "git-branch", "git-sha", "git-commit-time-relative" })
 		{
 			OnSolutionOpened(solutionModel.StartupSolution);
 
@@ -33,21 +33,13 @@ namespace Shellbent.Resolvers
 			if (!Available)
 				return false;
 
-			if (d.Item1 == "git-branch")
+			switch (d.Item1)
 			{
-				lock (syncLock) return GlobMatch(d.Item2, gitBranch);
-			}
-			else if (d.Item1 == "git-sha")
-			{
-				lock (syncLock) return GlobMatch(d.Item2, gitSha);
-			}
-			else if (d.Item1 == "git")
-			{
-				return true;
-			}
-			else
-			{
-				return false;
+				case "git-branch": lock (dataLock) return GlobMatch(d.Item2, gitBranch);
+				case "git-sha": lock (dataLock) return GlobMatch(d.Item2, gitSha);
+				case "git": return Available;
+
+				default: return false;
 			}
 		}
 
@@ -58,14 +50,14 @@ namespace Shellbent.Resolvers
 
 		public override string Resolve(VsState state, string tag)
 		{
-			if (tag == "git-branch")
-				lock (syncLock) return gitBranch;
-			else if (tag == "git-sha")
-				lock (syncLock) return gitSha;
-			else if (tag == "git-commit-time-relative")
-				lock (syncLock) return gitCommitTimeRelative;
-			else
-				return "";
+			switch (tag)
+			{
+				case "git-branch": lock (dataLock) return gitBranch;
+				case "git-sha": lock (dataLock) return gitSha;
+				case "git-commit-time-relative": lock (dataLock) return gitCommitTimeRelative;
+
+				default: return string.Empty;
+			}
 		}
 
 		private void OnSolutionOpened(Solution solution)
@@ -77,7 +69,8 @@ namespace Shellbent.Resolvers
 
 			gitPath = GetAllParentDirectories(solutionDir)
 				.SelectMany(x => x.GetDirectories())
-				.FirstOrDefault(x => x.Name == ".git")?.FullName;
+				.FirstOrDefault(x => x.Name == ".git")
+				?.FullName;
 
 			if (gitPath != null)
 			{
@@ -97,11 +90,13 @@ namespace Shellbent.Resolvers
 				fileWatcher.EnableRaisingEvents = false;
 				fileWatcher.Dispose();
 			}
+
+			Changed?.Invoke(this);
 		}
 
 		private void ReadInfo()
 		{
-			using (var p = new System.Diagnostics.Process()
+			var p = new System.Diagnostics.Process()
 			{
 				StartInfo = new System.Diagnostics.ProcessStartInfo()
 				{
@@ -112,38 +107,35 @@ namespace Shellbent.Resolvers
 					RedirectStandardOutput = true,
 					WorkingDirectory = gitPath
 				}
-			})
-			using (var p2 = new System.Diagnostics.Process()
+			};
+
+			var p2 = new System.Diagnostics.Process()
 			{
 				StartInfo = new System.Diagnostics.ProcessStartInfo()
 				{
 					FileName = "git.exe",
-					Arguments = "show -s --format=\"%h%n%cr\" HEAD",
+					Arguments = "show -s --format=\"%h|%cr\" HEAD",
 					UseShellExecute = false,
 					CreateNoWindow = true,
 					RedirectStandardOutput = true,
 					WorkingDirectory = gitPath
 				}
-			})
-			{
-				p.OutputDataReceived += GitBranchReceived;
-				p.Start();
-				p.BeginOutputReadLine();
+			};
 
-				p2.OutputDataReceived += GitShaReceived;
-				p2.Start();
-				p2.BeginOutputReadLine();
+			p.OutputDataReceived += GitBranchReceived;
+			p.Start();
+			p.BeginOutputReadLine();
 
-				// don't wait on the processes, let them dispose and synchronously
-				// update our data whenever it happens
-			}
+			p2.OutputDataReceived += GitCommitReadbackReceived;
+			p2.Start();
+			p2.BeginOutputReadLine();
 		}
 
 		private void GitBranchReceived(object sender, System.Diagnostics.DataReceivedEventArgs e)
 		{
 			if (e.Data != null)
 			{
-				lock (syncLock)
+				lock (dataLock)
 				{
 					gitBranch = e.Data;
 				}
@@ -152,20 +144,30 @@ namespace Shellbent.Resolvers
 			}
 		}
 
-		private void GitShaReceived(object sender, System.Diagnostics.DataReceivedEventArgs e)
+		private void GitCommitReadbackReceived(object sender, System.Diagnostics.DataReceivedEventArgs e)
 		{
-			if (e.Data != null)
-			{
-				var data = e.Data.Split("\n".ToCharArray()).ToList();
+			if (e.Data == null)
+				return;
 
-				lock (syncLock)
+			var data = e.Data
+				.Split(new char[] { '|' })
+				.ToList();
+
+			lock (dataLock)
+			{
+				try
 				{
 					gitSha = data[0];
 					gitCommitTimeRelative = data[1];
 				}
-
-				Changed?.Invoke(this);
+				catch
+				{
+					gitSha = "<error>";
+					gitCommitTimeRelative = "<error>";
+				}
 			}
+
+			Changed?.Invoke(this);
 		}
 
 		private static IEnumerable<DirectoryInfo> GetAllParentDirectories(DirectoryInfo directoryToScan)
@@ -187,10 +189,11 @@ namespace Shellbent.Resolvers
 
 		private FileSystemWatcher fileWatcher;
 
-		private readonly object syncLock = new object();
-		private string gitPath = string.Empty;
-		private string gitBranch = "";
-		private string gitSha = "";
-		private string gitCommitTimeRelative = "";
+		private readonly object dataLock = new object();
+
+		private string gitPath = null;
+		private string gitBranch = string.Empty;
+		private string gitSha = string.Empty;
+		private string gitCommitTimeRelative = string.Empty;
 	}
 }

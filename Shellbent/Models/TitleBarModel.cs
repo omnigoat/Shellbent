@@ -337,19 +337,23 @@ namespace Shellbent.Models
 			{
 				synthesizedInfoBlocks.ForEach(TitleBarInfoGrid.Children.Remove);
 
-				// fix up column-definitions
+				// reset column-definitions from before
 				if (TitleBarInfoGrid.ColumnDefinitions.Count > 2)
 					TitleBarInfoGrid.ColumnDefinitions.RemoveRange(2, TitleBarInfoGrid.ColumnDefinitions.Count - 2);
 
-				foreach (var i in data.Infos)
-					TitleBarInfoGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+				// add all user-defined blocks
+				if (data.Infos != null)
+				{
+					foreach (var i in data.Infos)
+						TitleBarInfoGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-				synthesizedInfoBlocks = data.Infos
-					.Select(MakeInfoBlock)
-					.ToList();
+					synthesizedInfoBlocks = data.Infos
+						.Select(MakeInfoBlock)
+						.ToList();
 
-				foreach (var c in synthesizedInfoBlocks)
-					TitleBarInfoGrid.Children.Add(c);
+					foreach (var c in synthesizedInfoBlocks)
+						TitleBarInfoGrid.Children.Add(c);
+				}
 			}
 		}
 

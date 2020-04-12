@@ -27,6 +27,7 @@ namespace Shellbent.Resolvers
 			OnSolutionOpened(solutionModel.StartupSolution);
 
 			solutionModel.SolutionOpened += OnSolutionOpened;
+			solutionModel.SolutionClosed += OnSolutionClosed;
 		}
 
 		public override bool Available => solution != null;

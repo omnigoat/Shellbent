@@ -38,6 +38,9 @@ namespace Shellbent.Utilities
 
 		public static string ParseFormatString(VsState state, string pattern)
 		{
+			if (pattern == null)
+				return string.Empty;
+
 			int i = 0;
 			if (ParseImpl(out string transformed, state, pattern, ref i, null))
 				return transformed;
