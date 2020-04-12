@@ -138,8 +138,8 @@ namespace Shellbent.Resolvers
 			p2.Start();
 			p2.BeginOutputReadLine();
 
-			p.WaitForExit();
-			p2.WaitForExit();
+			p.WaitForExit(5000);
+			p2.WaitForExit(5000);
 		}
 
 		private void GitBranchReceived(object sender, System.Diagnostics.DataReceivedEventArgs e)

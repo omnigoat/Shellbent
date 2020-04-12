@@ -30,7 +30,7 @@ namespace Shellbent
 	[Guid(PackageGuidString)]
 	[SuppressMessage("StyleCop.CSharp.DocumentationRules", "SA1650:ElementDocumentationMustBeSpelledCorrectly", Justification = "pkgdef, VS and vsixmanifest are valid VS terms")]
 	[ProvideAutoLoad(UIContextGuids.NoSolution, PackageAutoLoadFlags.BackgroundLoad)]
-	[ProvideOptionPage(typeof(SettingsPageGrid), "Title Bar None", "Settings", 101, 1000, true)]
+	//[ProvideOptionPage(typeof(SettingsPageGrid), "Title Bar None", "Settings", 101, 1000, true)]
 	public class ShellbentPackage : AsyncPackage
 	{
 		public const string PackageGuidString = "16599b2d-db6e-49cd-a76e-2b6da7343bcc";
@@ -55,11 +55,22 @@ namespace Shellbent
 				.Where(TripletDependenciesAreSatisfied)
 				//.Select(TitleBarFormatRightNow)
 				//.Concat(new[] { new Settings.TitleBarFormat("") { BackgroundBrush = SystemColors.ActiveBorderBrush, ForegroundBrush = SystemColors.ActiveCaptionTextBrush } })
-				.Aggregate(new Models.TitleBarData(), (acc, x) =>
+				.Aggregate(new Models.TitleBarData(), (Models.TitleBarData acc, Settings.SettingsTriplet x) =>
 				{
-					acc.TitleBarForegroundColor = acc.TitleBarForegroundColor ?? new SolidColorBrush(x.TitleBarForeground);
-					acc.Vs2017TitleBarBackgroundColor = acc.Vs2017TitleBarBackgroundColor ?? new SolidColorBrush(x.Vs2017TitleBarBackground);
-					acc.Vs2019TitleBarBackgroundColor = acc.Vs2019TitleBarBackgroundColor ?? new SolidColorBrush(x.Vs2019TitleBarBackground);
+					acc.TitleBarForegroundBrush = acc.TitleBarForegroundBrush ?? x.TitleBarForegroundBrush;
+					acc.Vs2017TitleBarBackgroundBrush = acc.Vs2017TitleBarBackgroundBrush ?? x.Vs2017TitleBarBackgroundBrush;
+					acc.Vs2019TitleBarBackgroundBrush = acc.Vs2019TitleBarBackgroundBrush ?? x.Vs2019TitleBarBackgroundBrush;
+
+					acc.Infos = acc.Infos ?? x.Blocks?.Select(ti =>
+					{
+						return new Models.TitleBarInfoBlockData()
+						{
+							Text = ti.Text,
+							TextBrush = ti.Foreground.NullOr(c => new SolidColorBrush(c)),
+							BackgroundBrush = ti.Background.NullOr(c => new SolidColorBrush(c))
+						};
+					}).ToList();
+
 					return acc;
 				});
 
@@ -80,7 +91,7 @@ namespace Shellbent
 		private IEnumerable<Settings.SettingsTriplet> SettingsTriplets =>
 			m_UserDirFileChangeProvider.Triplets
 				.Concat(m_SolutionsFileChangeProvider?.Triplets ?? new List<Settings.SettingsTriplet>())
-				.Concat(m_VsOptionsChangeProvider?.Triplets ?? new List<Settings.SettingsTriplet>())
+				//.Concat(m_VsOptionsChangeProvider?.Triplets ?? new List<Settings.SettingsTriplet>())
 				.Concat(m_DefaultsChangeProvider.Triplets);
 
 		private bool TripletDependenciesAreSatisfied(Settings.SettingsTriplet triplet)
@@ -90,8 +101,24 @@ namespace Shellbent
 
 		protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
 		{
+			// load ResourceDictionary
+			try
+			{
+				Application.Current.Resources.MergedDictionaries.Add(
+					new ResourceDictionary
+					{
+						Source = new Uri("/Shellbent;component/Resources/Brushes.xaml", UriKind.Relative)
+					});
+			}
+			catch (Exception e)
+			{
+				WriteOutput(e.Message);
+			}
+
+
 			// switch to UI thread
 			await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
 
 			// initialize the DTE and bind events
 			DTE = await GetServiceAsync(typeof(DTE)) as DTE;
@@ -127,21 +154,19 @@ namespace Shellbent
 
 
 			// get UI settings hooks
-			UISettings = GetDialogPage(typeof(SettingsPageGrid)) as SettingsPageGrid;
-			m_VsOptionsChangeProvider = new Settings.VsOptionsChangeProvider(UISettings);
-			m_VsOptionsChangeProvider.Changed += UpdateModelsAsync;
+			//UISettings = GetDialogPage(typeof(SettingsPageGrid)) as SettingsPageGrid;
+			//m_VsOptionsChangeProvider = new Settings.VsOptionsChangeProvider(UISettings);
+			//m_VsOptionsChangeProvider.Changed += UpdateModelsAsync;
 
 
 			// async initialize window state in case this plugin loaded after the
 			// IDE was brought up, because this plugin loads async to the UI
 			var d = TitleBarData;
 
-			_ = Application.Current.Dispatcher.InvokeAsync(() =>
-			{
-				var (_, discovered) = WindowsLostAndDiscovered;
-				foreach (var w in discovered)
-					w.UpdateTitleBar(d);
-			});
+			// we are the UI thread
+			//var (_, discovered) = WindowsLostAndDiscovered;
+			//foreach (var w in discovered)
+			//	w.UpdateTitleBar(d);
 		}
 
 		private void OnSolutionOpened(Solution solution)
@@ -184,9 +209,9 @@ namespace Shellbent
 
 		private void UpdateModelsAsync()
 		{
-			var d = TitleBarData;
+			//var d = TitleBarData;
 
-			_ = Application.Current.Dispatcher.InvokeAsync(() =>
+			Application.Current.Dispatcher.Invoke(() =>
 			{
 				var (lost, discovered) = WindowsLostAndDiscovered;
 
@@ -199,10 +224,11 @@ namespace Shellbent
 				// update all models
 				foreach (var x in knownWindowModels)
 				{
-					x.UpdateTitleBar(d);
+					x.UpdateTitleBar(TitleBarData);
+					x.ResetBackgroundToThemedDefault();
 				}
 
-				ChangeWindowTitle(d.TitleBarText);
+				//ChangeWindowTitle(d.TitleBarText);
 			});
 		}
 
@@ -275,7 +301,7 @@ namespace Shellbent
 
 		private Settings.SolutionFileChangeProvider m_SolutionsFileChangeProvider;
 		private Settings.UserDirFileChangeProvider m_UserDirFileChangeProvider;
-		private Settings.VsOptionsChangeProvider m_VsOptionsChangeProvider;
+		//private Settings.VsOptionsChangeProvider m_VsOptionsChangeProvider;
 		private Settings.DefaultsChangeProvider m_DefaultsChangeProvider = new Settings.DefaultsChangeProvider();
 	}
 }

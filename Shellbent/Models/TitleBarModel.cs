@@ -8,6 +8,9 @@ using System.Collections;
 using System.Windows.Markup;
 using System.IO;
 using System.Xml;
+using Microsoft.VisualStudio.PlatformUI;
+using System.Windows.Data;
+using Shellbent.Utilities;
 
 namespace Shellbent.Models
 {
@@ -69,14 +72,21 @@ namespace Shellbent.Models
 		//}
 	}
 
+	internal struct TitleBarInfoBlockData
+	{
+		public string Text;
+		public Brush TextBrush;
+		public Brush BackgroundBrush;
+	}
+	
 	internal struct TitleBarData
 	{
 		public string TitleBarText;
-		public Brush TitleBarForegroundColor;
-		public Brush Vs2017TitleBarBackgroundColor;
-		public Brush Vs2019TitleBarBackgroundColor;
+		public Brush TitleBarForegroundBrush;
+		public Brush Vs2017TitleBarBackgroundBrush;
+		public Brush Vs2019TitleBarBackgroundBrush;
 
-		public List<TitleBarData> Infos;
+		public List<TitleBarInfoBlockData> Infos;
 	}
 
 	internal abstract class TitleBarModel
@@ -107,6 +117,7 @@ namespace Shellbent.Models
 
 		public abstract void UpdateTitleBar(TitleBarData data);
 		public abstract void Reset();
+		public abstract void ResetBackgroundToThemedDefault();
 
 		public void SetTitleBarColor(System.Drawing.Color? color)
 		{
@@ -232,6 +243,8 @@ namespace Shellbent.Models
 #endif
 		}
 
+		public override void ResetBackgroundToThemedDefault() { }
+
 		public override void Reset()
 		{
 			throw new NotImplementedException();
@@ -276,178 +289,176 @@ namespace Shellbent.Models
 
 		public override void Reset()
 		{
-			
+
 		}
 
 		public override void UpdateTitleBar(TitleBarData data)
 		{
-			// title-bar background
-			if (MainTitleBar != null)
+			// colors
+			if (TitleBar != null)
 			{
+				if (data.TitleBarForegroundBrush != null)
 				{
-					System.Reflection.PropertyInfo property = MainTitleBar.GetType().GetProperty("Background");
-					property.SetValue(MainTitleBar, data.Vs2019TitleBarBackgroundColor ?? defaultMainTitleBarBackground, null);
+					TitleBarForegroundProperty?.SetValue(TitleBar, data.TitleBarForegroundBrush);
+				}
+				else
+				{
+					TitleBarForegroundProperty?.SetValue(TitleBar,
+						new Binding() { Source = EnvironmentColors.PanelTitleBarTextBrushKey },
+						System.Reflection.BindingFlags.Static, null, null, null);
 				}
 
-				// title-bar foreground
+				if (data.Vs2019TitleBarBackgroundBrush != null && false)
 				{
-					//System.Reflection.PropertyInfo property = MainTitleBar.GetType().GetProperty("Foreground");
-					//property.SetValue(MainTitleBar, data.TitleBarForegroundColor ?? defaultMainTitleBarForeground, null);
+					TitleBarBackgroundProperty?.SetValue(TitleBar, data.Vs2019TitleBarBackgroundBrush);
+				}
+				else
+				{
+					//var binding = new Binding() {
+					//	Source = EnvironmentColors.AccentMediumBrushKey,
+					//	Mode = BindingMode.OneWay
+					//};
+
+					//TitleBarBackgroundProperty?.SetValue(TitleBar,
+					//	binding,
+					//	System.Reflection.BindingFlags.Default, null, null, null);
+					TitleBarBackgroundProperty?.SetValue(TitleBar, null);
 				}
 			}
 
-			// title-bar text
-			{
-				var title = data.TitleBarText ?? defaultMainTitleBarText;
-				if (Window.Title != title)
-					Window.Title = title;
-			}
+			// text
+			if (!string.IsNullOrEmpty(data.TitleBarText) && Window.Title != data.TitleBarText)
+				Window.Title = data.TitleBarText;
 
-			var k = PrimeTitleInfoBlock;
-
-			// title-bar-infos for visual studio 2019
+			// remove all previously-synthesized info-blocks
+			// recalculate title-bar-infos
+			// add all the new ones
+			if (TitleBarInfoGrid != null)
 			{
-				// something something
+				synthesizedInfoBlocks.ForEach(TitleBarInfoGrid.Children.Remove);
+
+				// fix up column-definitions
+				if (TitleBarInfoGrid.ColumnDefinitions.Count > 2)
+					TitleBarInfoGrid.ColumnDefinitions.RemoveRange(2, TitleBarInfoGrid.ColumnDefinitions.Count - 2);
+
+				foreach (var i in data.Infos)
+					TitleBarInfoGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+				synthesizedInfoBlocks = data.Infos
+					.Select(MakeInfoBlock)
+					.ToList();
+
+				foreach (var c in synthesizedInfoBlocks)
+					TitleBarInfoGrid.Children.Add(c);
 			}
 		}
+
+		public override void ResetBackgroundToThemedDefault()
+		{
+			
+		}
+
+		protected List<Border> synthesizedInfoBlocks = new List<Border>();
 
 		public bool IsMainWindow => Window != null && Window == Application.Current.MainWindow;
 
-		private UIElement cachedMainTitleBar;
-		private Brush defaultMainTitleBarBackground;
-		private Brush defaultMainTitleBarForeground;
-		private string defaultMainTitleBarText;
-		protected UIElement MainTitleBar
-		{
-			get
-			{
-				if (cachedMainTitleBar != null)
-					return cachedMainTitleBar;
 
-				cachedMainTitleBar = IsMainWindow
-					? Window.GetElement<Border>("MainWindowTitleBar")
-					: Window.GetElement<Border>("MainWindowTitleBar");
+		//
+		// TitleBar
+		//
 
-				if (cachedMainTitleBar != null)
-				{
-					System.Reflection.PropertyInfo backgroundProp = cachedMainTitleBar.GetType().GetProperty("Background");
-					defaultMainTitleBarBackground = backgroundProp.GetValue(cachedMainTitleBar) as Brush;
+		private System.Reflection.PropertyInfo TitleBarBackgroundProperty => cachedTitleBar.NullOr(x => x.GetType().GetProperty("Background"));
+		private System.Reflection.PropertyInfo TitleBarForegroundProperty => cachedTitleBar.NullOr(x => x.GetType().GetProperty("Foreground"));
 
-					//System.Reflection.PropertyInfo foregroundProp = cachedMainTitleBar.GetType().GetProperty("Foreground");
-					//defaultMainTitleBarBackground = foregroundProp.GetValue(cachedMainTitleBar) as Brush;
+		private Border cachedTitleBar;
+		protected Border TitleBar => cachedTitleBar ??
+			(cachedTitleBar = IsMainWindow
+				? Window.GetElement<Border>("MainWindowTitleBar")
+				: Window.GetElement<Border>("MainWindowTitleBar"));
 
-					defaultMainTitleBarText = Window.Title;
-				}
-
-				return cachedMainTitleBar;
-			}
-		}
-
-		private TitleInfoBlock cachedPrimeTitleInfoBlock;
-		private Brush defaultTitleInfoBlockBackground;
-		private Brush defaultTitleInfoBlockForeground;
-		protected TitleInfoBlock PrimeTitleInfoBlock =>
-			cachedPrimeTitleInfoBlock ??
-			(cachedPrimeTitleInfoBlock = (TitleInfoBlock)ModifyTitleBarInfoGrid() ?? TitleInfoBlock.Make(MainTitleBar
-				?.GetElement<ContentControl>("PART_SolutionInfoControlHost")
-				?.GetElement<Border>("TextBorder"))
-				?.WithNotNull(x =>
-				{
-					defaultTitleInfoBlockBackground = x.Border.GetType().GetProperty("Background").GetValue(x.Border) as Brush;
-
-					// this is almost certainly wrong, as if the main window isn't focused when
-					// it loads, we might get a completely different colour
-					//var s = Application.Current.FindResource(typeof(TextBlock)) as Style;
-					//defaultTitleInfoBlockForeground = x.TextBox.GetType().GetProperty("Foreground").GetValue(x.TextBox) as Brush;
-				}));
-
-		private List<TitleInfoBlock> cachedAdditionalTitleBarInfoBlocks = null;
-		protected List<TitleInfoBlock> AdditionalTitleBarInfoBlocks =>
-			cachedAdditionalTitleBarInfoBlocks ??
-			(cachedAdditionalTitleBarInfoBlocks = (List<TitleInfoBlock>)ModifyTitleBarInfoGrid() ??
-				new List<TitleInfoBlock>());
-
-		private bool cachedTitleBarInfoGridModified = false;
-		protected object ModifyTitleBarInfoGrid()
-		{
-			if (cachedTitleBarInfoGridModified)
-				return null;
-
-			MainTitleBar
+		private Grid cachedTitleBarInfoGrid;
+		protected Grid TitleBarInfoGrid =>
+			cachedTitleBarInfoGrid ??
+			(cachedTitleBarInfoGrid = TitleBar
 				?.GetElement<ContentControl>("PART_SolutionInfoControlHost")
 				?.GetElement<Grid>()
-				?.WithNotNull(x =>
+				.WithNotNull(x =>
 				{
 					x.ColumnDefinitions[1].Width = GridLength.Auto;
-					x.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+					//x.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+				}));
 
-					cachedTitleBarInfoGridModified = true;
+		private TitleInfoBlock cachedPrimeTitleInfoBlock;
+		protected TitleInfoBlock PrimeTitleInfoBlock =>
+			cachedPrimeTitleInfoBlock ??
+			(cachedPrimeTitleInfoBlock = TitleInfoBlock.Make(TitleBarInfoGrid
+				?.GetElement<Border>("TextBorder")));
+
+		//private List<TitleInfoBlock> cachedAdditionalTitleBarInfoBlocks = null;
+		//protected List<TitleInfoBlock> AdditionalTitleBarInfoBlocks =>
+		//	cachedAdditionalTitleBarInfoBlocks ??
+		//	(cachedAdditionalTitleBarInfoBlocks = (List<TitleInfoBlock>)ModifyTitleBarInfoGrid() ??
+		//		new List<TitleInfoBlock>());
+
+		protected Border MakeInfoBlock(TitleBarInfoBlockData data, int idx)
+		{
+			var border = PrimeTitleInfoBlock.Border;
+			var text = PrimeTitleInfoBlock.TextBox;
+
+			try
+			{
+				var r = new Border
+				{
+					//Background = data.BackgroundBrush ?? defaultPanelTitleBar,
+					BorderBrush = border.BorderBrush,
+					BorderThickness = border.BorderThickness,
+					Padding = new Thickness(border.Padding.Left, border.Padding.Top, border.Padding.Right, border.Padding.Bottom),
+					DataContext = border.DataContext,
+
+					Child = new Border
+					{
+						Margin = new Thickness(0, 4.5, 0, 4.5),
+						Child = new TextBlock
+						{
+							Text = data.Text,
+							Foreground = data.TextBrush,
+
+							FontFamily = text.FontFamily,
+							FontWeight = text.FontWeight,
+							FontSize = text.FontSize,
+							FontStyle = text.FontStyle,
+							FontStretch = text.FontStretch,
+							TextAlignment = text.TextAlignment,
+							TextEffects = text.TextEffects,
+							Padding = text.Padding,
+							BaselineOffset = text.BaselineOffset,
+							Width = Math.Floor(MeasureString(text, data.Text).Width)
+						}
+					}
+				};
+
+				// set background to match the main block
+				r.SetBinding(Border.BackgroundProperty, new Binding()
+				{
+					Source = PrimeTitleInfoBlock.Border,
+					Path = new PropertyPath("Background")
 				});
 
+				r.SetValue(Grid.ColumnProperty, idx + 2);
+				return r;
+			}
+			catch (Exception e)
+			{
+				System.Console.WriteLine(e.Message);
+			}
+
 			return null;
 		}
 
-		//protected void LayoutTitleBarInfos(IEnumerable)
-		protected UIElement DeconstructTitleBar()
-		{
-#if false
-			// see if we have info - if we don't we probably loaded an empty Visual Studio
-			partInfoControlHost = titleBar.GetElement<ContentControl>("PART_SolutionInfoControlHost");
-			if (!partInfoControlHost.HasContent)
-				return null;
+		private Brush defaultPanelTitleBar => (Brush)Application.Current.Resources["BestBrush"];
+		private Brush defaultAccentLightBrush => (Brush)Window.FindResource(EnvironmentColors.AccentLightBrushKey);
+		private Brush defaultAccentMediumBrush => (Brush)Window.FindResource(EnvironmentColors.AccentMediumBrushKey);
 
-			// get 
-			var iegrid = partInfoControlHost.GetElement<Grid>();
-
-			var labels = iegrid
-				.GetChildren<Border>()
-				.Where(x => x.GetElement<TextBlock>() != null)
-				.Select(x => new TitleInfoBlock(x));
-
-			this.titleBarBorder = partInfoControlHost?.GetElement<Border>("TextBorder");
-			this.titleBarTextBox = this.titleBarBorder?.GetElement<TextBlock>();
-
-			var g = new Border
-			{
-				Background = titleBarBorder.Background,
-				BorderBrush = titleBarBorder.BorderBrush,
-				BorderThickness = titleBarBorder.BorderThickness,
-				Padding = new Thickness(titleBarBorder.Padding.Left, titleBarBorder.Padding.Top, titleBarBorder.Padding.Right, titleBarBorder.Padding.Bottom),
-				Child = new Border
-				{
-					Margin = new Thickness(0, 4.5, 0, 4.5),
-					Child = new TextBlock
-					{
-						Text = "atma",
-
-						FontFamily = titleBarTextBox.FontFamily,
-						FontWeight = titleBarTextBox.FontWeight,
-						FontSize = titleBarTextBox.FontSize,
-						FontStyle = titleBarTextBox.FontStyle,
-						FontStretch = titleBarTextBox.FontStretch,
-						Foreground = titleBarTextBox.Foreground,
-						TextAlignment = titleBarTextBox.TextAlignment,
-						TextEffects = titleBarTextBox.TextEffects,
-						Padding = titleBarTextBox.Padding,
-						BaselineOffset = titleBarTextBox.BaselineOffset,
-						Width = Math.Floor(MeasureString(titleBarTextBox, "atma").Width)
-					}
-				}
-			};
-
-			iegrid.ColumnDefinitions[1].Width = GridLength.Auto;
-			iegrid.ColumnDefinitions.Add(new ColumnDefinition
-			{
-				Width = GridLength.Auto
-			});
-
-			g.SetValue(Grid.ColumnProperty, 2);
-			//g.HorizontalAlignment = HorizontalAlignment.;
-			//iegrid.SetValue(Grid.WidthProperty, Size)
-			iegrid.Children.Add(g);
-#endif
-			return null;
-		}
 
 		private Size MeasureString(TextBlock textBlock, string candidate)
 		{

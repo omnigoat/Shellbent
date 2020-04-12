@@ -1,11 +1,10 @@
-﻿using System;
+﻿using Shellbent.Utilities;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using System.Windows.Media;
-using YamlDotNet.Core;
-using YamlDotNet.Core.Events;
 using YamlDotNet.Serialization;
 
 namespace Shellbent.Settings
@@ -27,17 +26,17 @@ namespace Shellbent.Settings
 			Pattern = pattern;
 		}
 
-		public TitleBarFormat(string pattern, System.Windows.Media.Color? color)
+		public TitleBarFormat(string pattern, Color? color)
 		{
 			Pattern = pattern;
 
 			if (color != null)
-				ForegroundBrush = new System.Windows.Media.SolidColorBrush(color.Value);
+				ForegroundBrush = new SolidColorBrush(color.Value);
 		}
 
 		public string Pattern;
-		public System.Windows.Media.Brush ForegroundBrush;
-		public System.Windows.Media.Brush BackgroundBrush;
+		public Brush ForegroundBrush;
+		public Brush BackgroundBrush;
 	}
 
 	public class TitleBarFormatConverter : TypeConverter
@@ -69,31 +68,6 @@ namespace Shellbent.Settings
 
 	}
 
-#if false
-	public class DefaultableColor : IYamlConvertible
-	{
-		public DefaultableColor(Color x)
-		{
-			Va lue = x;
-		}
-
-		Color Value;
-
-		public void Read(IParser parser, Type expectedType, ObjectDeserializer nestedObjectDeserializer)
-		{
-			if (parser.TryConsume<Scalar>(out Scalar s))
-			if (parser.TryConsume<ParsingEvent>)
-			Value = (Color)nestedObjectDeserializer(typeof(Color));
-		}
-
-		public void Write(IEmitter emitter, ObjectSerializer nestedObjectSerializer)
-		{
-			throw new NotImplementedException();
-		}
-	}
-#endif
-
-
 	public class SettingsTriplet
 	{
 		public class BlockSettings
@@ -102,25 +76,24 @@ namespace Shellbent.Settings
 			public string Text;
 
 			[YamlMember(Alias = "foreground")]
-			public Color Foreground;
+			public Color? Foreground;
 
 			[YamlMember(Alias = "background")]
-			public Color Background;
+			public Color? Background;
 		}
 
 
 		// when no predicate is specified, we assume the user wants
 		// these settings to apply to the "empty state" of the IDE
 		[YamlMember(Alias = "predicates")]
-		public List<string> predicateString = new List<string>();
+		public List<string> PredicateString = new List<string>();
 
 		private List<Tuple<string, string>> predicates;
 		public List<Tuple<string, string>> Predicates => predicates ??
-			(predicates = predicateString
+			(predicates = PredicateString
 				.Select(x => x.Trim())
 				.Where(x => !string.IsNullOrEmpty(x))
-				.Select(Utilities.Parsing.ParsePredicate)
-				.DefaultIfEmpty(Tuple.Create("empty", ""))
+				.Select(Parsing.ParsePredicate)
 				.ToList());
 
 
@@ -128,21 +101,20 @@ namespace Shellbent.Settings
 		public string TitleBarCaption;
 
 		[YamlMember(Alias = "title-bar-foreground")]
-		public Color TitleBarForeground;
-		public Brush TitleBarForegroundBrush =>
-			(TitleBarForeground == null) ? null : new SolidColorBrush(TitleBarForeground);
+		public Color? TitleBarForeground;
+		public Brush TitleBarForegroundBrush => TitleBarForeground.NullOr(c => new SolidColorBrush(c));
 
 		[YamlMember(Alias = "vs2017-title-bar-background")]
-		public Color Vs2017TitleBarBackground;
+		public Color? Vs2017TitleBarBackground;
+		public Brush Vs2017TitleBarBackgroundBrush => Vs2017TitleBarBackground.NullOr(c => new SolidColorBrush(c));
 
 		[YamlMember(Alias = "vs2019-title-bar-background")]
-		public Color Vs2019TitleBarBackground;
-
-		[YamlMember(Alias = "blocks")]
-		public List<BlockSettings> Blocks;
+		public Color? Vs2019TitleBarBackground;
+		public Brush Vs2019TitleBarBackgroundBrush => Vs2019TitleBarBackground.NullOr(c => new SolidColorBrush(c));
 
 		// vs2019
-		public List<TitleBarFormat> TextInfos;
+		[YamlMember(Alias = "blocks")]
+		public List<BlockSettings> Blocks;
 	}
 
 }
