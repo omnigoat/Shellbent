@@ -40,6 +40,7 @@ namespace Shellbent.Models
 		}
 
 		public static List<T> GetChildren<T>(this UIElement r)
+			where T : UIElement
 		{
 			List<T> children = new List<T>();
 			var c = VisualTreeHelper.GetChildrenCount(r);
@@ -61,16 +62,9 @@ namespace Shellbent.Models
 
 			return o;
 		}
-
-		//public static R WithNotNull<R, T>(this T o, Func<T, R> f)
-		//	where T : class
-		//{
-		//	if (o != null)
-		//		return f(o);
-		//	else
-		//		return default;
-		//}
 	}
+
+
 
 	internal struct TitleBarInfoBlockData
 	{
@@ -88,6 +82,11 @@ namespace Shellbent.Models
 
 		public List<TitleBarInfoBlockData> Infos;
 	}
+
+
+
+
+
 
 	internal abstract class TitleBarModel
 	{
@@ -154,8 +153,8 @@ namespace Shellbent.Models
 		{
 			if (!color.HasValue)
 			{
-				backgroundColor = defaultBackgroundValue;
-				textColor = defaultTextForeground;
+				backgroundColor = null;
+				textColor = null;
 			}
 			else
 			{
@@ -179,9 +178,6 @@ namespace Shellbent.Models
 		// textbox
 		//protected TextBlock titleBarTextBox = null;
 
-		protected Brush defaultBackgroundValue;
-		protected Brush defaultTextForeground;
-
 		protected const string ColorPropertyName = "Background";
 
 		private static bool IsMsvc2017(string str) => str.StartsWith("15");
@@ -190,6 +186,8 @@ namespace Shellbent.Models
 
 	internal class TitleBarModel2017 : TitleBarModel
 	{
+		public bool IsMainWindow => Window != null && Window == Application.Current.MainWindow;
+
 		public TitleBarModel2017(Window window) : base(window)
 		{
 #if false
@@ -243,16 +241,55 @@ namespace Shellbent.Models
 #endif
 		}
 
+
+		private Border cachedTitleBar;
+		protected Border TitleBar => cachedTitleBar ??
+			(cachedTitleBar = IsMainWindow
+				? Window.GetElement<Border>("MainWindowTitleBar")
+				: Window.GetElement<Border>("MainWindowTitleBar"));
+
+#if false
+		private TextBlock cachedTitleBarTextBlock;
+		protected TextBlock TitleBarTextBlock => cachedTitleBarTextBlock ??
+			(cachedTitleBarTextBlock = TitleBar
+				?.GetElement<TextBlock>());
+#endif
+
+		protected System.Reflection.PropertyInfo TitleBarBackgroundProperty => TitleBar.NullOr(x => x.GetType().GetProperty("Background"));
+		protected System.Reflection.PropertyInfo TitleBarForegroundProperty => TitleBar.NullOr(x => x.GetType().GetProperty("Foreground"));
+
+
 		public override void ResetBackgroundToThemedDefault() { }
 
 		public override void Reset()
 		{
-			throw new NotImplementedException();
+
 		}
 
 		public override void UpdateTitleBar(TitleBarData data)
 		{
-			throw new NotImplementedException();
+			// main-window title
+			if (IsMainWindow)
+			{
+				if (string.IsNullOrEmpty(data.TitleBarText))
+				{
+					// the main-window's title property is by default bound to
+					// a style, so just clear the local value to get vanilla MSVC
+					Window.ClearValue(Window.TitleProperty);
+				}
+				else if (Window.Title != data.TitleBarText)
+				{
+					Window.Title = data.TitleBarText;
+				}
+			}
+
+			// title-bar colors
+			if (TitleBar != null)
+			{
+				// setting to null resets to vanilla msvc
+				//TitleBarForegroundProperty?.SetValue(TitleBar, data.TitleBarForegroundBrush);
+				TitleBarBackgroundProperty?.SetValue(TitleBar, data.Vs2017TitleBarBackgroundBrush);
+			}
 		}
 	}
 
@@ -281,7 +318,7 @@ namespace Shellbent.Models
 
 
 
-	internal class TitleBarModel2019 : TitleBarModel
+	internal class TitleBarModel2019 : TitleBarModel2017
 	{
 		public TitleBarModel2019(Window window)
 			: base(window)
@@ -294,20 +331,7 @@ namespace Shellbent.Models
 
 		public override void UpdateTitleBar(TitleBarData data)
 		{
-			// main-window title
-			if (IsMainWindow)
-			{
-				if (string.IsNullOrEmpty(data.TitleBarText))
-				{
-					// the main-window's title property is by default bound to
-					// a style, so just clear the local value to get vanilla MSVC
-					Window.ClearValue(Window.TitleProperty);
-				}
-				else if (Window.Title != data.TitleBarText)
-				{
-					Window.Title = data.TitleBarText;
-				}
-			}
+			base.UpdateTitleBar(data);
 
 
 			// title-bar colors
@@ -354,21 +378,14 @@ namespace Shellbent.Models
 
 		protected List<Border> synthesizedInfoBlocks = new List<Border>();
 
-		public bool IsMainWindow => Window != null && Window == Application.Current.MainWindow;
 
 
 		//
 		// TitleBar
 		//
 
-		private System.Reflection.PropertyInfo TitleBarBackgroundProperty => cachedTitleBar.NullOr(x => x.GetType().GetProperty("Background"));
-		private System.Reflection.PropertyInfo TitleBarForegroundProperty => cachedTitleBar.NullOr(x => x.GetType().GetProperty("Foreground"));
-
-		private Border cachedTitleBar;
-		protected Border TitleBar => cachedTitleBar ??
-			(cachedTitleBar = IsMainWindow
-				? Window.GetElement<Border>("MainWindowTitleBar")
-				: Window.GetElement<Border>("MainWindowTitleBar"));
+		
+		
 
 		private Grid cachedTitleBarInfoGrid;
 		protected Grid TitleBarInfoGrid =>
