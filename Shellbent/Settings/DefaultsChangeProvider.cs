@@ -13,9 +13,9 @@ namespace Shellbent.Settings
 		public override List<SettingsTriplet> Triplets => new List<SettingsTriplet>
 		{
 			new SettingsTriplet {
-				TitleBarForeground = SystemColors.ActiveCaptionTextColor,
-				Vs2017TitleBarBackground = SystemColors.ActiveBorderColor,
-				Vs2019TitleBarBackground = SystemColors.ActiveCaptionTextColor
+				TitleBarForeground = null,
+				Vs2017TitleBarBackground = null,
+				Vs2019TitleBarBackground = null
 
 				//FormatIfNothingOpened = new TitleBarFormat(Defaults.PatternIfNothingOpen),
 				//FormatIfDocumentOpened = new TitleBarFormat(Defaults.PatternIfDocumentOpen),

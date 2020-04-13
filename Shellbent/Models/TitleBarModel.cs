@@ -294,30 +294,6 @@ namespace Shellbent.Models
 
 		public override void UpdateTitleBar(TitleBarData data)
 		{
-			// colors
-			if (TitleBar != null)
-			{
-				if (data.TitleBarForegroundBrush != null)
-				{
-					TitleBarForegroundProperty?.SetValue(TitleBar, data.TitleBarForegroundBrush);
-				}
-				else
-				{
-					TitleBarForegroundProperty?.SetValue(TitleBar,
-						new Binding() { Source = EnvironmentColors.PanelTitleBarTextBrushKey },
-						System.Reflection.BindingFlags.Static, null, null, null);
-				}
-
-				if (data.Vs2019TitleBarBackgroundBrush != null && false)
-				{
-					TitleBarBackgroundProperty?.SetValue(TitleBar, data.Vs2019TitleBarBackgroundBrush);
-				}
-				else
-				{
-					TitleBarBackgroundProperty?.SetValue(TitleBar, null);
-				}
-			}
-
 			// main-window title
 			if (IsMainWindow)
 			{
@@ -333,27 +309,38 @@ namespace Shellbent.Models
 				}
 			}
 
-			// remove all previously-synthesized info-blocks
-			// recalculate title-bar-infos
-			// add all the new ones
+
+			// title-bar colors
+			if (TitleBar != null)
+			{
+				// setting to null resets to vanilla msvc
+				TitleBarForegroundProperty?.SetValue(TitleBar, data.TitleBarForegroundBrush);
+				TitleBarBackgroundProperty?.SetValue(TitleBar, data.Vs2019TitleBarBackgroundBrush);
+			}
+
+
+			// info-blocks
 			if (TitleBarInfoGrid != null)
 			{
+				// remove all previously-synthesized info-blocks
 				synthesizedInfoBlocks.ForEach(TitleBarInfoGrid.Children.Remove);
 
 				// reset column-definitions from before
 				if (TitleBarInfoGrid.ColumnDefinitions.Count > 2)
 					TitleBarInfoGrid.ColumnDefinitions.RemoveRange(2, TitleBarInfoGrid.ColumnDefinitions.Count - 2);
 
-				// add all user-defined blocks
 				if (data.Infos != null)
 				{
+					// add new column-definitions to match
 					foreach (var i in data.Infos)
 						TitleBarInfoGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
+					// recalculate title-bar-infos
 					synthesizedInfoBlocks = data.Infos
 						.Select(MakeInfoBlock)
 						.ToList();
 
+					// add all user-defined blocks
 					foreach (var c in synthesizedInfoBlocks)
 						TitleBarInfoGrid.Children.Add(c);
 				}
@@ -392,7 +379,6 @@ namespace Shellbent.Models
 				.WithNotNull(x =>
 				{
 					x.ColumnDefinitions[1].Width = GridLength.Auto;
-					//x.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 				}));
 
 		private TitleInfoBlock cachedPrimeTitleInfoBlock;
@@ -400,12 +386,6 @@ namespace Shellbent.Models
 			cachedPrimeTitleInfoBlock ??
 			(cachedPrimeTitleInfoBlock = TitleInfoBlock.Make(TitleBarInfoGrid
 				?.GetElement<Border>("TextBorder")));
-
-		//private List<TitleInfoBlock> cachedAdditionalTitleBarInfoBlocks = null;
-		//protected List<TitleInfoBlock> AdditionalTitleBarInfoBlocks =>
-		//	cachedAdditionalTitleBarInfoBlocks ??
-		//	(cachedAdditionalTitleBarInfoBlocks = (List<TitleInfoBlock>)ModifyTitleBarInfoGrid() ??
-		//		new List<TitleInfoBlock>());
 
 		protected Border MakeInfoBlock(TitleBarInfoBlockData data, int idx)
 		{
@@ -416,6 +396,7 @@ namespace Shellbent.Models
 			{
 				var r = new Border
 				{
+					Background = data.BackgroundBrush,
 					BorderBrush = border.BorderBrush,
 					BorderThickness = border.BorderThickness,
 					Padding = new Thickness(border.Padding.Left, border.Padding.Top, border.Padding.Right, border.Padding.Bottom),
@@ -447,12 +428,15 @@ namespace Shellbent.Models
 					}
 				};
 
-				// set background to match the main block
-				r.SetBinding(Border.BackgroundProperty, new Binding()
+				// if no colour specified, set background to match the main block
+				if (data.BackgroundBrush == null)
 				{
-					Source = border,
-					Path = new PropertyPath("Background")
-				});
+					r.SetBinding(Border.BackgroundProperty, new Binding()
+					{
+						Source = border,
+						Path = new PropertyPath("Background")
+					});
+				}
 
 				r.SetValue(Grid.ColumnProperty, idx + 2);
 				return r;
@@ -479,7 +463,5 @@ namespace Shellbent.Models
 
 			return new Size(formattedText.Width, formattedText.Height);
 		}
-
-		protected ContentControl partInfoControlHost = null;
 	}
 }
