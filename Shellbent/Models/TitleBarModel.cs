@@ -244,7 +244,7 @@ namespace Shellbent.Models
 				: Window.GetElement<Border>("MainWindowTitleBar"));
 
 #if true
-		private TextBlock cachedTitleBarTextBlock;
+		protected TextBlock cachedTitleBarTextBlock;
 		protected virtual TextBlock TitleBarTextBlock => cachedTitleBarTextBlock ??
 			(cachedTitleBarTextBlock = IsMainWindow
 				? TitleBar
@@ -336,14 +336,8 @@ namespace Shellbent.Models
 		{
 			base.UpdateTitleBar(data);
 
-
-			// title-bar colors
-			if (TitleBar != null)
-			{
-				// setting to null resets to vanilla msvc
-				TitleBarForegroundProperty?.SetValue(TitleBar, data.TitleBarForegroundBrush);
-			}
-
+			// extend background colour to the menubar
+			TitleBarVsMenu?.SetValue(Panel.BackgroundProperty, data.TitleBarBackgroundBrush);
 
 			// info-blocks
 			if (TitleBarInfoGrid != null)
@@ -386,8 +380,18 @@ namespace Shellbent.Models
 		// TitleBar
 		//
 
-		
-		
+		protected override TextBlock TitleBarTextBlock => cachedTitleBarTextBlock ??
+			(cachedTitleBarTextBlock = IsMainWindow
+				? TitleBar?.GetElement<TextBlock>("TextBlock_1")
+				: null);
+
+		private UIElement cachedVsMenu;
+		private UIElement TitleBarVsMenu => cachedVsMenu ??
+			(cachedVsMenu = TitleBar
+				?.GetElement<ContentControl>("PART_MinimalMainMenuBar")
+				?.GetElement<ContentPresenter>()
+				?.GetElement<ContentPresenter>()
+				?.GetElement<UIElement>());
 
 		private Grid cachedTitleBarInfoGrid;
 		protected Grid TitleBarInfoGrid =>
