@@ -314,21 +314,24 @@ namespace Shellbent.Models
 				}
 				else
 				{
-					//var binding = new Binding() {
-					//	Source = EnvironmentColors.AccentMediumBrushKey,
-					//	Mode = BindingMode.OneWay
-					//};
-
-					//TitleBarBackgroundProperty?.SetValue(TitleBar,
-					//	binding,
-					//	System.Reflection.BindingFlags.Default, null, null, null);
 					TitleBarBackgroundProperty?.SetValue(TitleBar, null);
 				}
 			}
 
-			// text
-			if (!string.IsNullOrEmpty(data.TitleBarText) && Window.Title != data.TitleBarText)
-				Window.Title = data.TitleBarText;
+			// main-window title
+			if (IsMainWindow)
+			{
+				if (string.IsNullOrEmpty(data.TitleBarText))
+				{
+					// the main-window's title property is by default bound to
+					// a style, so just clear the local value to get vanilla MSVC
+					Window.ClearValue(Window.TitleProperty);
+				}
+				else if (Window.Title != data.TitleBarText)
+				{
+					Window.Title = data.TitleBarText;
+				}
+			}
 
 			// remove all previously-synthesized info-blocks
 			// recalculate title-bar-infos

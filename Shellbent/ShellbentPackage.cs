@@ -237,8 +237,6 @@ namespace Shellbent
 					x.UpdateTitleBar(TitleBarData);
 					x.ResetBackgroundToThemedDefault();
 				}
-
-				//ChangeWindowTitle(d.TitleBarText);
 			});
 		}
 
@@ -271,31 +269,8 @@ namespace Shellbent
 			}
 		}
 
-		private void ChangeWindowTitle(string title)
-		{
-			if (title == null)
-			{
-				Debug.Print("ChangeWindowTitle - exiting early because title == null");
-				return;
-			}
 
-			if (Application.Current.MainWindow == null)
-			{
-				Debug.Print("ChangeWindowTitle - exiting early because Application.Current.MainWindow == null");
-				return;
-			}
 
-			try
-			{
-				Application.Current.MainWindow.Title = DTE.MainWindow.Caption;
-				if (Application.Current.MainWindow.Title != title)
-					Application.Current.MainWindow.Title = title;
-			}
-			catch (Exception e)
-			{
-				Debug.Print(e.Message);
-			}
-		}
 
 		// UI
 		internal SettingsPageGrid UISettings { get; private set; }
