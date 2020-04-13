@@ -76,8 +76,8 @@ namespace Shellbent.Models
 	internal struct TitleBarData
 	{
 		public string TitleBarText;
-		public Brush TitleBarForegroundBrush;
-		public Brush TitleBarBackgroundBrush;
+		public SolidColorBrush TitleBarForegroundBrush;
+		public SolidColorBrush TitleBarBackgroundBrush;
 
 		public List<TitleBarInfoBlockData> Infos;
 	}
@@ -148,25 +148,21 @@ namespace Shellbent.Models
 #endif
 		}
 
-		public void CalculateColors(System.Drawing.Color? color, out Brush backgroundColor, out Brush textColor)
+		public SolidColorBrush CalculateForegroundBrush(Color? color)
 		{
 			if (!color.HasValue)
-			{
-				backgroundColor = null;
-				textColor = null;
-			}
-			else
-			{
-				var c = color.Value;
+				return null;
 
-				backgroundColor = new SolidColorBrush(Color.FromArgb(c.A, c.R, c.G, c.B));
+			var c = color.Value;
 
-				float luminance = 0.299f * c.R + 0.587f * c.G + 0.114f * c.B;
-				if (luminance > 128.0f)
-					textColor = new SolidColorBrush(Color.FromRgb(0, 0, 0));
-				else
-					textColor = new SolidColorBrush(Color.FromRgb(255, 255, 255));
-			}
+			float luminance = 0.299f * c.R + 0.587f * c.G + 0.114f * c.B;
+
+			if (luminance > 128.0f) // very bright, use black
+				return new SolidColorBrush(Color.FromRgb(0, 0, 0));
+			else if (luminance > 64.0f) // medium, use white
+				return new SolidColorBrush(Color.FromRgb(255, 255, 255));
+			else // very dark, use vanilla msvc grey
+				return null; 
 		}
 
 		// visual-studio 2017 & 2019
@@ -247,15 +243,18 @@ namespace Shellbent.Models
 				? Window.GetElement<Border>("MainWindowTitleBar")
 				: Window.GetElement<Border>("MainWindowTitleBar"));
 
-#if false
+#if true
 		private TextBlock cachedTitleBarTextBlock;
-		protected TextBlock TitleBarTextBlock => cachedTitleBarTextBlock ??
-			(cachedTitleBarTextBlock = TitleBar
-				?.GetElement<TextBlock>());
+		protected virtual TextBlock TitleBarTextBlock => cachedTitleBarTextBlock ??
+			(cachedTitleBarTextBlock = IsMainWindow
+				? TitleBar
+					?.GetElement<DockPanel>()
+					?.GetElement<TextBlock>(null, 1)
+				: null);
 #endif
 
 		protected System.Reflection.PropertyInfo TitleBarBackgroundProperty => TitleBar.NullOr(x => x.GetType().GetProperty("Background"));
-		protected System.Reflection.PropertyInfo TitleBarForegroundProperty => TitleBar.NullOr(x => x.GetType().GetProperty("Foreground"));
+		protected System.Reflection.PropertyInfo TitleBarForegroundProperty => TitleBarTextBlock.NullOr(x => x.GetType().GetProperty("Foreground"));
 
 
 		public override void ResetBackgroundToThemedDefault() { }
@@ -286,8 +285,13 @@ namespace Shellbent.Models
 			if (TitleBar != null)
 			{
 				// setting to null resets to vanilla msvc
-				//TitleBarForegroundProperty?.SetValue(TitleBar, data.TitleBarForegroundBrush);
 				TitleBarBackgroundProperty?.SetValue(TitleBar, data.TitleBarBackgroundBrush);
+
+				var foregroundBrush = data.TitleBarForegroundBrush ?? CalculateForegroundBrush(data.TitleBarBackgroundBrush?.Color);
+				if (foregroundBrush != null)
+					TitleBarForegroundProperty?.SetValue(TitleBarTextBlock, foregroundBrush);
+				else
+					TitleBarTextBlock.ClearValue(TextBlock.ForegroundProperty);
 			}
 		}
 	}
