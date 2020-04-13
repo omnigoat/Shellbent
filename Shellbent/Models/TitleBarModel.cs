@@ -114,7 +114,6 @@ namespace Shellbent.Models
 		public Window Window { get; private set; }
 
 		public abstract void UpdateTitleBar(TitleBarData data);
-		public abstract void ResetBackgroundToThemedDefault();
 
 		public void SetTitleBarColor(System.Drawing.Color? color)
 		{
@@ -184,43 +183,6 @@ namespace Shellbent.Models
 
 		public TitleBarModel2017(Window window) : base(window)
 		{
-#if false
-			try
-			{
-				// this is for non-main-windows
-				{
-					var windowContentPresenter = VisualTreeHelper.GetChild(window, 0);
-					var rootGrid = VisualTreeHelper.GetChild(windowContentPresenter, 0);
-					if (VisualTreeHelper.GetChildrenCount(rootGrid) == 0)
-						return;
-
-					var rootDockPanel = VisualTreeHelper.GetChild(rootGrid, 0);
-					var titleBar = VisualTreeHelper.GetChild(rootDockPanel, 0);
-					var titleBar = VisualTreeHelper.GetChild(titleBar, 0);
-					var border = VisualTreeHelper.GetChild(titleBar, 0);
-					var contentPresenter = VisualTreeHelper.GetChild(border, 0);
-					var grid = VisualTreeHelper.GetChild(contentPresenter, 0);
-
-					this.titleBar = grid;
-
-					this.titleBarTextBox = VisualTreeHelper.GetChild(grid, 1) as TextBlock;
-				}
-
-				if (this.titleBar != null)
-				{
-					System.Reflection.PropertyInfo propertyInfo = this.titleBar.GetType().GetProperty(ColorPropertyName);
-					this.defaultBackgroundValue = propertyInfo.GetValue(this.titleBar) as Brush;
-				}
-
-				if (this.titleBarTextBox != null)
-				{
-					this.defaultTextForeground = this.titleBarTextBox.Foreground;
-				}
-			}
-			catch
-			{
-			}
-#endif
 		}
 
 
@@ -232,7 +194,6 @@ namespace Shellbent.Models
 					.GetElement<UIElement>("TitleBar")
 					?.GetElement<Grid>());
 
-#if true
 		protected TextBlock cachedTitleBarTextBlock;
 		protected virtual TextBlock TitleBarTextBlock => cachedTitleBarTextBlock ??
 			(cachedTitleBarTextBlock = IsMainWindow
@@ -241,13 +202,10 @@ namespace Shellbent.Models
 					?.GetElement<TextBlock>(null, 1)
 				: TitleBar
 					?.GetElement<TextBlock>());
-#endif
 
 		protected System.Reflection.PropertyInfo TitleBarBackgroundProperty => TitleBar.NullOr(x => x.GetType().GetProperty("Background"));
 		protected System.Reflection.PropertyInfo TitleBarForegroundProperty => TitleBarTextBlock.NullOr(x => x.GetType().GetProperty("Foreground"));
 
-
-		public override void ResetBackgroundToThemedDefault() { }
 
 		public override void UpdateTitleBar(TitleBarData data)
 		{
@@ -347,18 +305,7 @@ namespace Shellbent.Models
 			}
 		}
 
-		public override void ResetBackgroundToThemedDefault()
-		{
-			
-		}
-
 		protected List<Border> synthesizedInfoBlocks = new List<Border>();
-
-
-
-		//
-		// TitleBar
-		//
 
 		protected override TextBlock TitleBarTextBlock => cachedTitleBarTextBlock ??
 			(cachedTitleBarTextBlock = IsMainWindow

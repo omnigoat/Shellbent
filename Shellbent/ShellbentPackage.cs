@@ -228,7 +228,6 @@ namespace Shellbent
 				foreach (var x in knownWindowModels)
 				{
 					x.UpdateTitleBar(TitleBarData);
-					x.ResetBackgroundToThemedDefault();
 				}
 			});
 		}
