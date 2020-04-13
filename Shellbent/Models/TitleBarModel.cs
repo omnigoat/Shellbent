@@ -77,8 +77,7 @@ namespace Shellbent.Models
 	{
 		public string TitleBarText;
 		public Brush TitleBarForegroundBrush;
-		public Brush Vs2017TitleBarBackgroundBrush;
-		public Brush Vs2019TitleBarBackgroundBrush;
+		public Brush TitleBarBackgroundBrush;
 
 		public List<TitleBarInfoBlockData> Infos;
 	}
@@ -288,7 +287,7 @@ namespace Shellbent.Models
 			{
 				// setting to null resets to vanilla msvc
 				//TitleBarForegroundProperty?.SetValue(TitleBar, data.TitleBarForegroundBrush);
-				TitleBarBackgroundProperty?.SetValue(TitleBar, data.Vs2017TitleBarBackgroundBrush);
+				TitleBarBackgroundProperty?.SetValue(TitleBar, data.TitleBarBackgroundBrush);
 			}
 		}
 	}
@@ -339,7 +338,6 @@ namespace Shellbent.Models
 			{
 				// setting to null resets to vanilla msvc
 				TitleBarForegroundProperty?.SetValue(TitleBar, data.TitleBarForegroundBrush);
-				TitleBarBackgroundProperty?.SetValue(TitleBar, data.Vs2019TitleBarBackgroundBrush);
 			}
 
 

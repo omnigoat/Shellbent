@@ -14,9 +14,8 @@ namespace Shellbent.Settings
 		{
 			new SettingsTriplet {
 				TitleBarForeground = null,
-				Vs2017TitleBarBackground = null,
-				Vs2019TitleBarBackground = null
-
+				TitleBarBackground = null
+				
 				//FormatIfNothingOpened = new TitleBarFormat(Defaults.PatternIfNothingOpen),
 				//FormatIfDocumentOpened = new TitleBarFormat(Defaults.PatternIfDocumentOpen),
 				//FormatIfSolutionOpened = new TitleBarFormat(Defaults.PatternIfSolutionOpen)

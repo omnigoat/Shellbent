@@ -104,13 +104,9 @@ namespace Shellbent.Settings
 		public Color? TitleBarForeground;
 		public Brush TitleBarForegroundBrush => TitleBarForeground.NullOr(c => new SolidColorBrush(c));
 
-		[YamlMember(Alias = "vs2017-title-bar-background")]
-		public Color? Vs2017TitleBarBackground;
-		public Brush Vs2017TitleBarBackgroundBrush => Vs2017TitleBarBackground.NullOr(c => new SolidColorBrush(c));
-
-		[YamlMember(Alias = "vs2019-title-bar-background")]
-		public Color? Vs2019TitleBarBackground;
-		public Brush Vs2019TitleBarBackgroundBrush => Vs2019TitleBarBackground.NullOr(c => new SolidColorBrush(c));
+		[YamlMember(Alias = "title-bar-background")]
+		public Color? TitleBarBackground;
+		public Brush TitleBarBackgroundBrush => TitleBarBackground.NullOr(c => new SolidColorBrush(c));
 
 		// vs2019
 		[YamlMember(Alias = "blocks")]

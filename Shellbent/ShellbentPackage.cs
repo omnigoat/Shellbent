@@ -68,8 +68,7 @@ namespace Shellbent
 
 					acc.TitleBarText = acc.TitleBarText ?? Parsing.ParseFormatString(state, x.TitleBarCaption);
 					acc.TitleBarForegroundBrush = acc.TitleBarForegroundBrush ?? x.TitleBarForegroundBrush;
-					acc.Vs2017TitleBarBackgroundBrush = acc.Vs2017TitleBarBackgroundBrush ?? x.Vs2017TitleBarBackgroundBrush;
-					acc.Vs2019TitleBarBackgroundBrush = acc.Vs2019TitleBarBackgroundBrush ?? x.Vs2019TitleBarBackgroundBrush;
+					acc.TitleBarBackgroundBrush = acc.TitleBarBackgroundBrush ?? x.TitleBarBackgroundBrush;
 
 					acc.Infos = acc.Infos ?? x.Blocks?.Select(ti =>
 					{
