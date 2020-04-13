@@ -27,7 +27,7 @@ namespace Shellbent.Models
 					var e = VisualTreeHelper.GetChild(r, i);
 					if (e is T)
 					{
-						if (name == null || (e as FrameworkElement).Name == name)
+						if (name == null || (e as FrameworkElement)?.Name == name)
 							return e;
 					}
 					e = find(e, depth - 1);
@@ -114,7 +114,6 @@ namespace Shellbent.Models
 		public Window Window { get; private set; }
 
 		public abstract void UpdateTitleBar(TitleBarData data);
-		public abstract void Reset();
 		public abstract void ResetBackgroundToThemedDefault();
 
 		public void SetTitleBarColor(System.Drawing.Color? color)
@@ -188,19 +187,7 @@ namespace Shellbent.Models
 #if false
 			try
 			{
-				// set title bar of main window
-				if (window == Application.Current.MainWindow)
-				{
-					var windowContentPresenter = VisualTreeHelper.GetChild(window, 0);
-					var rootGrid = VisualTreeHelper.GetChild(windowContentPresenter, 0);
-
-					titleBar = VisualTreeHelper.GetChild(rootGrid, 0);
-
-					var dockPanel = VisualTreeHelper.GetChild(titleBar, 0);
-					titleBarTextBox = VisualTreeHelper.GetChild(dockPanel, 3) as TextBlock;
-				}
-				// haha, do something else?
-				else
+				// this is for non-main-windows
 				{
 					var windowContentPresenter = VisualTreeHelper.GetChild(window, 0);
 					var rootGrid = VisualTreeHelper.GetChild(windowContentPresenter, 0);
@@ -237,11 +224,13 @@ namespace Shellbent.Models
 		}
 
 
-		private Border cachedTitleBar;
-		protected Border TitleBar => cachedTitleBar ??
+		private UIElement cachedTitleBar;
+		protected UIElement TitleBar => cachedTitleBar ??
 			(cachedTitleBar = IsMainWindow
-				? Window.GetElement<Border>("MainWindowTitleBar")
-				: Window.GetElement<Border>("MainWindowTitleBar"));
+				? Window.GetElement<UIElement>("MainWindowTitleBar")
+				: (UIElement)Window
+					.GetElement<UIElement>("TitleBar")
+					?.GetElement<Grid>());
 
 #if true
 		protected TextBlock cachedTitleBarTextBlock;
@@ -250,7 +239,8 @@ namespace Shellbent.Models
 				? TitleBar
 					?.GetElement<DockPanel>()
 					?.GetElement<TextBlock>(null, 1)
-				: null);
+				: TitleBar
+					?.GetElement<TextBlock>());
 #endif
 
 		protected System.Reflection.PropertyInfo TitleBarBackgroundProperty => TitleBar.NullOr(x => x.GetType().GetProperty("Background"));
@@ -258,11 +248,6 @@ namespace Shellbent.Models
 
 
 		public override void ResetBackgroundToThemedDefault() { }
-
-		public override void Reset()
-		{
-
-		}
 
 		public override void UpdateTitleBar(TitleBarData data)
 		{
@@ -291,7 +276,7 @@ namespace Shellbent.Models
 				if (foregroundBrush != null)
 					TitleBarForegroundProperty?.SetValue(TitleBarTextBlock, foregroundBrush);
 				else
-					TitleBarTextBlock.ClearValue(TextBlock.ForegroundProperty);
+					TitleBarTextBlock?.ClearValue(TextBlock.ForegroundProperty);
 			}
 		}
 	}
@@ -326,11 +311,6 @@ namespace Shellbent.Models
 		public TitleBarModel2019(Window window)
 			: base(window)
 		{ }
-
-		public override void Reset()
-		{
-
-		}
 
 		public override void UpdateTitleBar(TitleBarData data)
 		{
@@ -383,7 +363,7 @@ namespace Shellbent.Models
 		protected override TextBlock TitleBarTextBlock => cachedTitleBarTextBlock ??
 			(cachedTitleBarTextBlock = IsMainWindow
 				? TitleBar?.GetElement<TextBlock>("TextBlock_1")
-				: null);
+				: TitleBar?.GetElement<TextBlock>("WindowTitle"));
 
 		private UIElement cachedVsMenu;
 		private UIElement TitleBarVsMenu => cachedVsMenu ??

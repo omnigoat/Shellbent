@@ -224,12 +224,6 @@ namespace Shellbent
 			{
 				var (lost, discovered) = WindowsLostAndDiscovered;
 
-				// reset old models back to how they were
-				foreach (var x in lost)
-				{
-					x.Reset();
-				}
-
 				// update all models
 				foreach (var x in knownWindowModels)
 				{
