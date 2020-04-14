@@ -91,7 +91,7 @@ namespace Shellbent.Models
 	{
 		public TitleBarModel(Window window)
 		{
-			this.Window = window;
+			Window = window;
 		}
 
 		public static TitleBarModel Make(string vsVersion, Window x)
@@ -115,37 +115,6 @@ namespace Shellbent.Models
 
 		public abstract void UpdateTitleBar(TitleBarData data);
 
-		public void SetTitleBarColor(System.Drawing.Color? color)
-		{
-			UpdateTitleBar(new TitleBarData());
-#if false
-			try
-			{
-				CalculateColors(color, out Brush backgroundColor, out Brush textColor);
-				
-				if (titleBar != null)
-				{
-					System.Reflection.PropertyInfo propertyInfo = titleBar.GetType().GetProperty(ColorPropertyName);
-					propertyInfo.SetValue(titleBar, backgroundColor, null);
-				}
-				else if (titleBarBorder != null)
-				{
-					System.Reflection.PropertyInfo propertyInfo = this.titleBarBorder.GetType().GetProperty(ColorPropertyName);
-					propertyInfo.SetValue(this.titleBarBorder, backgroundColor, null);
-				}
-
-				if (titleBarTextBox != null)
-				{
-					//titleBarTextBox.Foreground = textColor;
-				}
-			}
-			catch
-			{
-				System.Diagnostics.Debug.Fail("TitleBarModel.SetTitleBarColor - couldn't :(");
-			}
-#endif
-		}
-
 		public SolidColorBrush CalculateForegroundBrush(Color? color)
 		{
 			if (!color.HasValue)
@@ -162,16 +131,6 @@ namespace Shellbent.Models
 			else // very dark, use vanilla msvc grey
 				return null; 
 		}
-
-		// visual-studio 2017 & 2019
-		//protected UIElement titleBar = null;
-
-		// background-color
-		//protected Border titleBarBorder = null;
-		// textbox
-		//protected TextBlock titleBarTextBox = null;
-
-		protected const string ColorPropertyName = "Background";
 
 		private static bool IsMsvc2017(string str) => str.StartsWith("15");
 		private static bool IsMsvc2019(string str) => str.StartsWith("16");
@@ -280,6 +239,18 @@ namespace Shellbent.Models
 			// info-blocks
 			if (TitleBarInfoGrid != null)
 			{
+				// if we have an override background-colour, then calculate a nice default
+				// background-colour for the blocks, and apply it to the prime block
+				if (data.TitleBarBackgroundBrush != null)
+				{
+					// just 25% less bright
+					PrimeTitleInfoBlock.Border.Background = new SolidColorBrush(data.TitleBarBackgroundBrush.Color * 0.75f);
+				}
+				else
+				{
+					PrimeTitleInfoBlock.Border.ClearValue(Border.BackgroundProperty);
+				}
+
 				// remove all previously-synthesized info-blocks
 				synthesizedInfoBlocks.ForEach(TitleBarInfoGrid.Children.Remove);
 
@@ -381,11 +352,19 @@ namespace Shellbent.Models
 				// if no colour specified, set background to match the main block
 				if (data.BackgroundBrush == null)
 				{
+					// TEST - it works
+					// PrimeTitleInfoBlock.Border.ClearValue(Border.BackgroundProperty);
+
 					r.SetBinding(Border.BackgroundProperty, new Binding()
 					{
 						Source = border,
 						Path = new PropertyPath("Background")
 					});
+				}
+				else
+				{
+					// TEST - it works
+					// PrimeTitleInfoBlock.Border.SetValue(Border.BackgroundProperty, data.BackgroundBrush);
 				}
 
 				r.SetValue(Grid.ColumnProperty, idx + 2);
