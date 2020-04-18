@@ -86,22 +86,21 @@ namespace Shellbent.Models
 
 
 
-
-	internal abstract class TitleBarModel
+	internal abstract class WindowWrapper
 	{
-		public TitleBarModel(Window window)
+		public WindowWrapper(Window window)
 		{
 			Window = window;
 		}
 
-		public static TitleBarModel Make(string vsVersion, Window x)
+		public static WindowWrapper Make(string vsVersion, Window x)
 		{
 			try
 			{
 				if (IsMsvc2017(vsVersion))
-					return new TitleBarModel2017(x);
+					return new WindowWrapper2017(x);
 				else if (IsMsvc2019(vsVersion))
-					return new TitleBarModel2019(x);
+					return new WindowWrapper2019(x);
 			}
 			catch
 			{
@@ -136,11 +135,11 @@ namespace Shellbent.Models
 		private static bool IsMsvc2019(string str) => str.StartsWith("16");
 	}
 
-	internal class TitleBarModel2017 : TitleBarModel
+	internal class WindowWrapper2017 : WindowWrapper
 	{
 		public bool IsMainWindow => Window != null && Window == Application.Current.MainWindow;
 
-		public TitleBarModel2017(Window window) : base(window)
+		public WindowWrapper2017(Window window) : base(window)
 		{
 		}
 
@@ -223,9 +222,9 @@ namespace Shellbent.Models
 
 
 
-	internal class TitleBarModel2019 : TitleBarModel2017
+	internal class WindowWrapper2019 : WindowWrapper2017
 	{
-		public TitleBarModel2019(Window window)
+		public WindowWrapper2019(Window window)
 			: base(window)
 		{ }
 

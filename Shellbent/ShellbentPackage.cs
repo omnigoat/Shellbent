@@ -232,9 +232,9 @@ namespace Shellbent
 			});
 		}
 
-		private List<Models.TitleBarModel> knownWindowModels = new List<Models.TitleBarModel>();
+		private List<Models.WindowWrapper> knownWindowModels = new List<Models.WindowWrapper>();
 
-		private Tuple<List<Models.TitleBarModel>, List<Models.TitleBarModel>> WindowsLostAndDiscovered
+		private Tuple<List<Models.WindowWrapper>, List<Models.WindowWrapper>> WindowsLostAndDiscovered
 		{
 			get
 			{
@@ -246,7 +246,7 @@ namespace Shellbent
 
 				var discovered = seenWindows
 					.Except(knownWindowModels.Select(x => x.Window))
-					.Select(x => Models.TitleBarModel.Make(DTE.Version, x))
+					.Select(x => Models.WindowWrapper.Make(DTE.Version, x))
 					.Where(x => x != null)
 					.ToList();
 
