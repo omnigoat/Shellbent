@@ -11,6 +11,7 @@ using System.Xml;
 using Microsoft.VisualStudio.PlatformUI;
 using System.Windows.Data;
 using Shellbent.Utilities;
+using System.Windows.Shapes;
 
 namespace Shellbent.Models
 {
@@ -126,23 +127,6 @@ namespace Shellbent.Models
 
 		public abstract void UpdateTitleBar(TitleBarData data);
 
-		public SolidColorBrush CalculateForegroundBrush(Color? color)
-		{
-			if (!color.HasValue)
-				return null;
-
-			var c = color.Value;
-
-			float luminance = 0.299f * c.R + 0.587f * c.G + 0.114f * c.B;
-
-			if (luminance > 128.0f) // very bright, use black
-				return new SolidColorBrush(Color.FromRgb(0, 0, 0));
-			else if (luminance > 48.0f) // medium, use white
-				return new SolidColorBrush(Color.FromRgb(255, 255, 255));
-			else // very dark, use vanilla msvc grey
-				return null; 
-		}
-
 		private static bool IsMsvc2017(string str) => str.StartsWith("15");
 		private static bool IsMsvc2019(string str) => str.StartsWith("16");
 	}
@@ -185,7 +169,7 @@ namespace Shellbent.Models
 				// tool-windows don't have a title-bar-text-block
 				if (TitleBarTextBlock != null)
 				{
-					var foregroundBrush = data.TitleBarForegroundBrush ?? CalculateForegroundBrush(data.TitleBarBackgroundBrush?.Color);
+					var foregroundBrush = data.TitleBarForegroundBrush ?? WindowUtils.CalculateForegroundBrush(data.TitleBarBackgroundBrush?.Color);
 					if (foregroundBrush != null)
 						TitleBarForegroundProperty?.SetValue(TitleBarTextBlock, foregroundBrush);
 					else
@@ -458,8 +442,7 @@ namespace Shellbent.Models
 	{
 		public new static bool IsSuitable(Window w)
 		{
-			// this is a main window!
-			if (w?.GetElement<UIElement>("MainWindowTitleBar") != null)
+			if (WindowWrapper2019MainWindow.IsSuitable(w))
 				return false;
 
 			var title_bar = w
@@ -483,8 +466,7 @@ namespace Shellbent.Models
 	{
 		public new static bool IsSuitable(Window w)
 		{
-			// this is a main window!
-			if (w?.GetElement<UIElement>("MainWindowTitleBar") != null)
+			if (WindowWrapper2019MainWindow.IsSuitable(w))
 				return false;
 
 			var title_bar = w
@@ -496,7 +478,18 @@ namespace Shellbent.Models
 
 		public WindowWrapper2019ToolWindow(Window window)
 			: base(window)
-		{ }
+		{
+			Window.Activated += Window_ActivationChanged;
+			Window.Deactivated += Window_ActivationChanged;
+		}
+
+		private void Window_ActivationChanged(object sender, EventArgs e)
+		{
+			if (!titleColor.HasValue)
+				return;
+
+			UpdateToolWindowColors(titleColor.Value);
+		}
 
 		protected override TextBlock RetrieveTitleBarTextBlock()
 		{
@@ -505,12 +498,48 @@ namespace Shellbent.Models
 
 		public override void UpdateTitleBar(TitleBarData data)
 		{
-			base.UpdateTitleBar(data);
+			titleColor = data.TitleBarBackgroundBrush?.Color;
 
 			if (data.TitleBarBackgroundBrush != null)
-				ToolWindowBorder?.SetValue(Border.BackgroundProperty, data.TitleBarBackgroundBrush);
+			{
+				UpdateToolWindowColors(data.TitleBarBackgroundBrush.Color);
+			}
 			else
+			{
 				ToolWindowBorder?.ClearValue(Border.BackgroundProperty);
+				DragHandle.ClearValue(Shape.FillProperty);
+			}
+		}
+
+		private void UpdateToolWindowColors(Color color)
+		{
+			if (Window.IsActive)
+			{
+				var brightBrush = WindowUtils.CalculateBrightColorBrush(color);
+				var brighterBrush = WindowUtils.CalculateBrightColorBrush(brightBrush.Color);
+
+				ToolWindowBorder?.SetValue(Border.BackgroundProperty, brightBrush);
+				ToolWindowBorder?.SetValue(Border.BorderBrushProperty, brightBrush);
+				DragHandle?.SetValue(Shape.FillProperty, GenerateFillBrush(brighterBrush));
+			}
+			else
+			{
+				var brush = new SolidColorBrush(color);
+				var brightBrush  = WindowUtils.CalculateBrightColorBrush(color);
+
+				ToolWindowBorder?.SetValue(Border.BackgroundProperty, brush);
+				ToolWindowBorder?.SetValue(Border.BorderBrushProperty, brush);
+				DragHandle.SetValue(Shape.FillProperty, GenerateFillBrush(brightBrush));
+			}
+		}
+
+		private Brush GenerateFillBrush(Brush brush)
+		{
+			var vsgeom = DragHandleBrush.Drawing as GeometryDrawing;
+			var geom = new GeometryDrawing(brush, vsgeom.Pen, vsgeom.Geometry);
+			var fillBrush = DragHandleBrush.Clone();
+			fillBrush.Drawing = geom;
+			return fillBrush;
 		}
 
 		private Border cachedToolWindowBorder;
@@ -518,6 +547,18 @@ namespace Shellbent.Models
 			(cachedToolWindowBorder = Window
 				?.GetElement<Border>("ContentBorder")
 				?.GetElement<Border>("Bd"));
+
+		private Rectangle cachedDragHandle;
+		private Rectangle DragHandle => cachedDragHandle ??
+			(cachedDragHandle = ToolWindowBorder
+				?.GetElement<Rectangle>("DragHandleTexture"));
+
+		// drag-handle brush (the ::::::::: thing to the side of the tool-window title)
+		private DrawingBrush cachedDragHandleBrush;
+		private DrawingBrush DragHandleBrush => cachedDragHandleBrush ??
+			(cachedDragHandleBrush = (DragHandle.Fill as DrawingBrush));
+
+		private Color? titleColor;
 	}
 
 
@@ -540,6 +581,34 @@ namespace Shellbent.Models
 				1);
 
 			return new Size(formattedText.Width, formattedText.Height);
+		}
+
+		public static SolidColorBrush CalculateForegroundBrush(Color? color)
+		{
+			if (!color.HasValue)
+				return null;
+
+			var c = color.Value;
+
+			float luminance = 0.299f * c.R + 0.587f * c.G + 0.114f * c.B;
+
+			if (luminance > 128.0f) // very bright, use black
+				return new SolidColorBrush(Color.FromRgb(0, 0, 0));
+			else if (luminance > 48.0f) // medium, use white
+				return new SolidColorBrush(Color.FromRgb(255, 255, 255));
+			else // very dark, use vanilla msvc grey
+				return null;
+		}
+
+		public static SolidColorBrush CalculateBrightColorBrush(Color? color)
+		{
+			if (!color.HasValue)
+				return null;
+
+			// perceived luminance
+			float luminance = (0.299f * color.Value.R + 0.587f * color.Value.G + 0.114f * color.Value.B) / 255.0f;
+
+			return new SolidColorBrush(color.Value * (1.4f / (float)Math.Sqrt(luminance)));
 		}
 	}
 }
