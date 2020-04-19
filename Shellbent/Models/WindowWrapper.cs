@@ -97,10 +97,22 @@ namespace Shellbent.Models
 		{
 			try
 			{
-				if (IsMsvc2017(vsVersion))
-					return new WindowWrapper2017(x);
-				else if (IsMsvc2019(vsVersion))
-					return new WindowWrapper2019(x);
+				if (IsMsvc2019(vsVersion))
+				{
+					if (WindowWrapper2019MainWindow.IsSuitable(x))
+						return new WindowWrapper2019MainWindow(x);
+					else if (WindowWrapper2019ToolWindow.IsSuitable(x))
+						return new WindowWrapper2019ToolWindow(x);
+					else if (WindowWrapper2019ToolWindowExpanded.IsSuitable(x))
+						return new WindowWrapper2019ToolWindowExpanded(x);
+				}
+				else
+				{
+					if (WindowWrapper2017MainWindow.IsSuitable(x))
+						return new WindowWrapper2017MainWindow(x);
+					else if (WindowWrapper2017ToolWindow.IsSuitable(x))
+						return new WindowWrapper2017ToolWindow(x);
+				}
 			}
 			catch
 			{
@@ -125,7 +137,7 @@ namespace Shellbent.Models
 
 			if (luminance > 128.0f) // very bright, use black
 				return new SolidColorBrush(Color.FromRgb(0, 0, 0));
-			else if (luminance > 64.0f) // medium, use white
+			else if (luminance > 48.0f) // medium, use white
 				return new SolidColorBrush(Color.FromRgb(255, 255, 255));
 			else // very dark, use vanilla msvc grey
 				return null; 
@@ -135,35 +147,17 @@ namespace Shellbent.Models
 		private static bool IsMsvc2019(string str) => str.StartsWith("16");
 	}
 
-	internal class WindowWrapper2017 : WindowWrapper
+
+
+
+
+	internal abstract class WindowWrapper2017 : WindowWrapper
 	{
 		public bool IsMainWindow => Window != null && Window == Application.Current.MainWindow;
 
 		public WindowWrapper2017(Window window) : base(window)
 		{
 		}
-
-
-		private UIElement cachedTitleBar;
-		protected UIElement TitleBar => cachedTitleBar ??
-			(cachedTitleBar = IsMainWindow
-				? Window.GetElement<UIElement>("MainWindowTitleBar")
-				: (UIElement)Window
-					.GetElement<UIElement>("TitleBar")
-					?.GetElement<Grid>());
-
-		protected TextBlock cachedTitleBarTextBlock;
-		protected virtual TextBlock TitleBarTextBlock => cachedTitleBarTextBlock ??
-			(cachedTitleBarTextBlock = IsMainWindow
-				? TitleBar
-					?.GetElement<DockPanel>()
-					?.GetElement<TextBlock>(null, 1)
-				: TitleBar
-					?.GetElement<TextBlock>());
-
-		protected System.Reflection.PropertyInfo TitleBarBackgroundProperty => TitleBar.NullOr(x => x.GetType().GetProperty("Background"));
-		protected System.Reflection.PropertyInfo TitleBarForegroundProperty => TitleBarTextBlock.NullOr(x => x.GetType().GetProperty("Foreground"));
-
 
 		public override void UpdateTitleBar(TitleBarData data)
 		{
@@ -188,45 +182,133 @@ namespace Shellbent.Models
 				// setting to null resets to vanilla msvc
 				TitleBarBackgroundProperty?.SetValue(TitleBar, data.TitleBarBackgroundBrush);
 
-				var foregroundBrush = data.TitleBarForegroundBrush ?? CalculateForegroundBrush(data.TitleBarBackgroundBrush?.Color);
-				if (foregroundBrush != null)
-					TitleBarForegroundProperty?.SetValue(TitleBarTextBlock, foregroundBrush);
-				else
-					TitleBarTextBlock?.ClearValue(TextBlock.ForegroundProperty);
+				// tool-windows don't have a title-bar-text-block
+				if (TitleBarTextBlock != null)
+				{
+					var foregroundBrush = data.TitleBarForegroundBrush ?? CalculateForegroundBrush(data.TitleBarBackgroundBrush?.Color);
+					if (foregroundBrush != null)
+						TitleBarForegroundProperty?.SetValue(TitleBarTextBlock, foregroundBrush);
+					else
+						TitleBarTextBlock.ClearValue(TextBlock.ForegroundProperty);
+				}
 			}
 		}
+
+		// cached UI elements
+		private UIElement cachedTitleBar;
+		protected UIElement TitleBar => cachedTitleBar ??
+			(cachedTitleBar = RetrieveTitleBar());
+
+		protected TextBlock cachedTitleBarTextBlock;
+		protected TextBlock TitleBarTextBlock => cachedTitleBarTextBlock ??
+			(cachedTitleBarTextBlock = RetrieveTitleBarTextBlock());
+
+		// foreground/background properties
+		protected System.Reflection.PropertyInfo TitleBarBackgroundProperty =>
+			TitleBar.NullOr(x => x.GetType().GetProperty("Background"));
+
+		protected System.Reflection.PropertyInfo TitleBarForegroundProperty =>
+			TitleBarTextBlock.NullOr(x => x.GetType().GetProperty("Foreground"));
+
+
+		protected abstract UIElement RetrieveTitleBar();
+		protected abstract TextBlock RetrieveTitleBarTextBlock();
 	}
 
-	internal class TitleInfoBlock
+
+
+	internal class WindowWrapper2017MainWindow : WindowWrapper2017
 	{
-		public static TitleInfoBlock Make(Border border)
+		public static bool IsSuitable(Window w)
 		{
-			if (border == null)
-				return null;
-			else
-				return new TitleInfoBlock(border);
+			return w?.GetElement<UIElement>("MainWindowTitleBar") != null;
 		}
 
-		public TitleInfoBlock(Border border)
+		public WindowWrapper2017MainWindow(Window w) : base(w)
 		{
-			Border = border;
-			TextBox = border.GetElement<TextBlock>();
 		}
 
-		public readonly Border Border;
-		public readonly TextBlock TextBox;
+		public override void UpdateTitleBar(TitleBarData data)
+		{
+			base.UpdateTitleBar(data);
+		}
+
+		protected override UIElement RetrieveTitleBar()
+		{
+			return Window
+				.GetElement<UIElement>("MainWindowTitleBar");
+		}
+
+		protected override TextBlock RetrieveTitleBarTextBlock()
+		{
+			return TitleBar
+				?.GetElement<DockPanel>()
+				?.GetElement<TextBlock>(null, 1);
+		}
 	}
 
-
-
-
-
-
-	internal class WindowWrapper2019 : WindowWrapper2017
+	internal class WindowWrapper2017ToolWindow : WindowWrapper2017
 	{
-		public WindowWrapper2019(Window window)
+		public static bool IsSuitable(Window w)
+		{
+			return w?.GetElement<UIElement>("MainWindowTitleBar") != null;
+		}
+
+		public WindowWrapper2017ToolWindow(Window w) : base(w)
+		{
+		}
+
+		public override void UpdateTitleBar(TitleBarData data)
+		{
+			base.UpdateTitleBar(data);
+		}
+
+		protected override UIElement RetrieveTitleBar()
+		{
+			return Window
+				.GetElement<UIElement>("TitleBar")
+				?.GetElement<Grid>();
+		}
+
+		protected override TextBlock RetrieveTitleBarTextBlock()
+		{
+			return TitleBar
+				?.GetElement<TextBlock>();
+		}
+	}
+
+	
+
+	internal class WindowWrapper2019MainWindow : WindowWrapper2017MainWindow
+	{
+		public new static bool IsSuitable(Window w)
+		{
+			return w?.GetElement<UIElement>("MainWindowTitleBar") != null;
+		}
+
+		public WindowWrapper2019MainWindow(Window window)
 			: base(window)
 		{ }
+
+		private class TitleInfoBlock
+		{
+			public static TitleInfoBlock Make(Border border)
+			{
+				if (border == null)
+					return null;
+				else
+					return new TitleInfoBlock(border);
+			}
+
+			public TitleInfoBlock(Border border)
+			{
+				Border = border;
+				TextBox = border.GetElement<TextBlock>();
+			}
+
+			public readonly Border Border;
+			public readonly TextBlock TextBox;
+		}
 
 		public override void UpdateTitleBar(TitleBarData data)
 		{
@@ -277,10 +359,10 @@ namespace Shellbent.Models
 
 		protected List<Border> synthesizedInfoBlocks = new List<Border>();
 
-		protected override TextBlock TitleBarTextBlock => cachedTitleBarTextBlock ??
-			(cachedTitleBarTextBlock = IsMainWindow
-				? TitleBar?.GetElement<TextBlock>("TextBlock_1")
-				: TitleBar?.GetElement<TextBlock>("WindowTitle"));
+		protected override TextBlock RetrieveTitleBarTextBlock()
+		{
+			return TitleBar?.GetElement<TextBlock>("TextBlock_1");
+		}
 
 		private UIElement cachedVsMenu;
 		private UIElement TitleBarVsMenu => cachedVsMenu ??
@@ -302,12 +384,12 @@ namespace Shellbent.Models
 				}));
 
 		private TitleInfoBlock cachedPrimeTitleInfoBlock;
-		protected TitleInfoBlock PrimeTitleInfoBlock =>
+		private TitleInfoBlock PrimeTitleInfoBlock =>
 			cachedPrimeTitleInfoBlock ??
 			(cachedPrimeTitleInfoBlock = TitleInfoBlock.Make(TitleBarInfoGrid
 				?.GetElement<Border>("TextBorder")));
 
-		protected Border MakeInfoBlock(TitleBarInfoBlockData data, int idx)
+		private Border MakeInfoBlock(TitleBarInfoBlockData data, int idx)
 		{
 			var border = PrimeTitleInfoBlock.Border;
 			var text = PrimeTitleInfoBlock.TextBox;
@@ -343,7 +425,7 @@ namespace Shellbent.Models
 							TextEffects = text.TextEffects,
 							Padding = text.Padding,
 							BaselineOffset = text.BaselineOffset,
-							Width = Math.Floor(MeasureString(text, data.Text).Width)
+							Width = Math.Floor(WindowUtils.MeasureString(text, data.Text).Width)
 						}
 					}
 				};
@@ -351,19 +433,11 @@ namespace Shellbent.Models
 				// if no colour specified, set background to match the main block
 				if (data.BackgroundBrush == null)
 				{
-					// TEST - it works
-					// PrimeTitleInfoBlock.Border.ClearValue(Border.BackgroundProperty);
-
 					r.SetBinding(Border.BackgroundProperty, new Binding()
 					{
 						Source = border,
 						Path = new PropertyPath("Background")
 					});
-				}
-				else
-				{
-					// TEST - it works
-					// PrimeTitleInfoBlock.Border.SetValue(Border.BackgroundProperty, data.BackgroundBrush);
 				}
 
 				r.SetValue(Grid.ColumnProperty, idx + 2);
@@ -377,7 +451,83 @@ namespace Shellbent.Models
 			return null;
 		}
 
-		private Size MeasureString(TextBlock textBlock, string candidate)
+		
+	}
+
+	internal class WindowWrapper2019ToolWindowExpanded : WindowWrapper2017ToolWindow
+	{
+		public new static bool IsSuitable(Window w)
+		{
+			// this is a main window!
+			if (w?.GetElement<UIElement>("MainWindowTitleBar") != null)
+				return false;
+
+			var title_bar = w
+				?.GetElement<UIElement>("TitleBarContainer")
+				?.GetElement<UIElement>("TitleBar");
+
+			return title_bar != null && VisualTreeHelper.GetChildrenCount(title_bar) > 0;
+		}
+
+		public WindowWrapper2019ToolWindowExpanded(Window window)
+			: base(window)
+		{ }
+
+		protected override TextBlock RetrieveTitleBarTextBlock()
+		{
+			return TitleBar?.GetElement<TextBlock>("WindowTitle");
+		}
+	}
+
+	internal class WindowWrapper2019ToolWindow : WindowWrapper2017ToolWindow
+	{
+		public new static bool IsSuitable(Window w)
+		{
+			// this is a main window!
+			if (w?.GetElement<UIElement>("MainWindowTitleBar") != null)
+				return false;
+
+			var title_bar = w
+				?.GetElement<UIElement>("TitleBarContainer")
+				?.GetElement<UIElement>("TitleBar");
+
+			return title_bar != null && VisualTreeHelper.GetChildrenCount(title_bar) == 0;
+		}
+
+		public WindowWrapper2019ToolWindow(Window window)
+			: base(window)
+		{ }
+
+		protected override TextBlock RetrieveTitleBarTextBlock()
+		{
+			return null;
+		}
+
+		public override void UpdateTitleBar(TitleBarData data)
+		{
+			base.UpdateTitleBar(data);
+
+			if (data.TitleBarBackgroundBrush != null)
+				ToolWindowBorder?.SetValue(Border.BackgroundProperty, data.TitleBarBackgroundBrush);
+			else
+				ToolWindowBorder?.ClearValue(Border.BackgroundProperty);
+		}
+
+		private Border cachedToolWindowBorder;
+		private Border ToolWindowBorder => cachedToolWindowBorder ??
+			(cachedToolWindowBorder = Window
+				?.GetElement<Border>("ContentBorder")
+				?.GetElement<Border>("Bd"));
+	}
+
+
+
+
+
+
+	internal static class WindowUtils
+	{
+		public static Size MeasureString(TextBlock textBlock, string candidate)
 		{
 			var formattedText = new FormattedText(
 				candidate,
