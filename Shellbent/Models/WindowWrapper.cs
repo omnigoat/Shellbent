@@ -113,6 +113,8 @@ namespace Shellbent.Models
 						return new WindowWrapper2017MainWindow(x);
 					else if (WindowWrapper2017ToolWindow.IsSuitable(x))
 						return new WindowWrapper2017ToolWindow(x);
+					else if (WindowWrapper2017ToolWindowExpanded.IsSuitable(x))
+						return new WindowWrapper2017ToolWindowExpanded(x);
 				}
 			}
 			catch
@@ -231,20 +233,56 @@ namespace Shellbent.Models
 		}
 	}
 
+	internal class WindowWrapper2017ToolWindowExpanded : WindowWrapper2017ToolWindow
+	{
+		public new static bool IsSuitable(Window w)
+		{
+			if (WindowWrapper2017MainWindow.IsSuitable(w))
+				return false;
+
+			var title_bar = w
+				?.GetElement<UIElement>("TitleBarContainer")
+				?.GetElement<UIElement>("TitleBar");
+
+			return title_bar != null && VisualTreeHelper.GetChildrenCount(title_bar) > 0;
+		}
+
+		public WindowWrapper2017ToolWindowExpanded(Window window)
+			: base(window)
+		{ }
+
+		protected override TextBlock RetrieveTitleBarTextBlock()
+		{
+			return TitleBar?.GetElement<TextBlock>("WindowTitle");
+		}
+	}
+
 	internal class WindowWrapper2017ToolWindow : WindowWrapper2017
 	{
 		public static bool IsSuitable(Window w)
 		{
-			return w?.GetElement<UIElement>("MainWindowTitleBar") != null;
+			if (w?.GetElement<UIElement>("MainWindowTitleBar") != null)
+				return false;
+
+			var title_bar = w
+				?.GetElement<UIElement>("TitleBarContainer")
+				?.GetElement<UIElement>("TitleBar");
+
+			return title_bar != null && VisualTreeHelper.GetChildrenCount(title_bar) == 0;
 		}
 
 		public WindowWrapper2017ToolWindow(Window w) : base(w)
 		{
+			Window.Activated += Window_ActivationChanged;
+			Window.Deactivated += Window_ActivationChanged;
 		}
 
-		public override void UpdateTitleBar(TitleBarData data)
+		private void Window_ActivationChanged(object sender, EventArgs e)
 		{
-			base.UpdateTitleBar(data);
+			if (!titleColor.HasValue)
+				return;
+
+			UpdateToolWindowColors(titleColor.Value);
 		}
 
 		protected override UIElement RetrieveTitleBar()
@@ -256,9 +294,72 @@ namespace Shellbent.Models
 
 		protected override TextBlock RetrieveTitleBarTextBlock()
 		{
-			return TitleBar
-				?.GetElement<TextBlock>();
+			return null;
 		}
+
+		public override void UpdateTitleBar(TitleBarData data)
+		{
+			titleColor = data.TitleBarBackgroundBrush?.Color;
+
+			if (data.TitleBarBackgroundBrush != null)
+			{
+				UpdateToolWindowColors(data.TitleBarBackgroundBrush.Color);
+			}
+			else
+			{
+				ToolWindowBorder?.ClearValue(Border.BackgroundProperty);
+				DragHandle.ClearValue(Shape.FillProperty);
+			}
+		}
+
+		private void UpdateToolWindowColors(Color color)
+		{
+			if (Window.IsActive)
+			{
+				var brightBrush = WindowUtils.CalculateBrightColorBrush(color);
+				var brighterBrush = WindowUtils.CalculateBrightColorBrush(brightBrush.Color);
+
+				ToolWindowBorder?.SetValue(Border.BackgroundProperty, brightBrush);
+				ToolWindowBorder?.SetValue(Border.BorderBrushProperty, brightBrush);
+				DragHandle?.SetValue(Shape.FillProperty, GenerateFillBrush(brighterBrush));
+			}
+			else
+			{
+				var brush = new SolidColorBrush(color);
+				var brightBrush = WindowUtils.CalculateBrightColorBrush(color);
+
+				ToolWindowBorder?.SetValue(Border.BackgroundProperty, brush);
+				ToolWindowBorder?.SetValue(Border.BorderBrushProperty, brush);
+				DragHandle.SetValue(Shape.FillProperty, GenerateFillBrush(brightBrush));
+			}
+		}
+
+		private Brush GenerateFillBrush(Brush brush)
+		{
+			var vsgeom = DragHandleBrush.Drawing as GeometryDrawing;
+			var geom = new GeometryDrawing(brush, vsgeom.Pen, vsgeom.Geometry);
+			var fillBrush = DragHandleBrush.Clone();
+			fillBrush.Drawing = geom;
+			return fillBrush;
+		}
+
+		private Border cachedToolWindowBorder;
+		private Border ToolWindowBorder => cachedToolWindowBorder ??
+			(cachedToolWindowBorder = Window
+				?.GetElement<Border>("ContentBorder")
+				?.GetElement<Border>("Bd"));
+
+		private Rectangle cachedDragHandle;
+		private Rectangle DragHandle => cachedDragHandle ??
+			(cachedDragHandle = ToolWindowBorder
+				?.GetElement<Rectangle>("DragHandleTexture"));
+
+		// drag-handle brush (the ::::::::: thing to the side of the tool-window title)
+		private DrawingBrush cachedDragHandleBrush;
+		private DrawingBrush DragHandleBrush => cachedDragHandleBrush ??
+			(cachedDragHandleBrush = (DragHandle.Fill as DrawingBrush));
+
+		private Color? titleColor;
 	}
 
 	
