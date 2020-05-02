@@ -71,6 +71,7 @@
     </Compile>
     <Compile Include="Resolvers\GitResolver.cs" />
     <Compile Include="Resolvers\IDEResolver.cs" />
+    <Compile Include="Resolvers\P4Resolver.cs" />
     <Compile Include="Resolvers\Resolver.cs" />
     <Compile Include="Resolvers\SolutionResolver.cs" />
     <Compile Include="Resolvers\SvnResolver.cs" />

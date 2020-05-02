@@ -149,7 +149,8 @@ namespace Shellbent
 				SolutionResolver.Create(solutionModel),
 				GitResolver.Create(solutionModel),
 				VsrResolver.Create(solutionModel),
-				SvnResolver.Create(solutionModel)
+				SvnResolver.Create(solutionModel),
+				new P4Resolver(solutionModel)
 			};
 
 			foreach (var resolver in m_Resolvers)

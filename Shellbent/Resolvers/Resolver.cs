@@ -1,8 +1,12 @@
 ﻿using EnvDTE;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
+using Shellbent.Utilities;
 
 namespace Shellbent.Resolvers
 {
@@ -49,7 +53,7 @@ namespace Shellbent.Resolvers
 
 		public bool Applicable(string tag)
 		{
-			return m_Tags.Contains(new string(tag.TakeWhile(x => char.IsLetter(x) || x == '-').ToArray()));
+			return m_Tags.Any(x => ExtensionMethods.RegexMatches(tag, @"[a-z][a-z0-9-]*", out Match m) && m.Groups[0].Value == x);
 		}
 
 		public abstract bool ResolveBoolean(VsState state, string tag);
@@ -68,5 +72,82 @@ namespace Shellbent.Resolvers
 		}
 
 		private readonly List<string> m_Tags;
+	}
+
+	internal static class ResolverUtils
+	{
+		// GetAllParentDirectories
+		public static IEnumerable<DirectoryInfo> GetAllParentDirectories(DirectoryInfo directoryToScan)
+		{
+			Stack<DirectoryInfo> ret = new Stack<DirectoryInfo>();
+			GetAllParentDirectories(ref ret, directoryToScan);
+			return ret;
+		}
+
+		private static void GetAllParentDirectories(ref Stack<DirectoryInfo> directories, DirectoryInfo directoryToScan)
+		{
+			if (directoryToScan == null || directoryToScan.Name == directoryToScan.Root.Name)
+				return;
+
+			directories.Push(directoryToScan);
+			GetAllParentDirectories(ref directories, directoryToScan.Parent);
+		}
+
+		// thing
+		private const int ProcessTimeout = 5000;
+
+		public static string ExecuteProcess(string exeName, string arguments)
+		{
+			using (var process = new System.Diagnostics.Process
+			{
+				StartInfo = new System.Diagnostics.ProcessStartInfo()
+				{
+					FileName = exeName,
+					Arguments = arguments,
+					UseShellExecute = false,
+					CreateNoWindow = true,
+					RedirectStandardOutput = true,
+					RedirectStandardError = true
+				}
+			})
+			{
+				StringBuilder output = new StringBuilder();
+				StringBuilder error = new StringBuilder();
+
+				using (AutoResetEvent outputWaitHandle = new AutoResetEvent(false))
+				using (AutoResetEvent errorWaitHandle = new AutoResetEvent(false))
+				{
+					process.OutputDataReceived += (sender, e) => {
+						if (e.Data == null)
+							outputWaitHandle.Set();
+						else
+							output.AppendLine(e.Data);
+					};
+					process.ErrorDataReceived += (sender, e) =>
+					{
+						if (e.Data == null)
+							errorWaitHandle.Set();
+						else
+							error.AppendLine(e.Data);
+					};
+
+					process.Start();
+
+					process.BeginOutputReadLine();
+					process.BeginErrorReadLine();
+
+					if (process.WaitForExit(ProcessTimeout) &&
+						outputWaitHandle.WaitOne(ProcessTimeout) &&
+						errorWaitHandle.WaitOne(ProcessTimeout))
+					{
+						return output.ToString();
+					}
+					else
+					{
+						return null;
+					}
+				}
+			}
+		}
 	}
 }

@@ -67,7 +67,7 @@ namespace Shellbent.Resolvers
 
 			var solutionDir = new FileInfo(solution.FileName).Directory;
 
-			gitPath = GetAllParentDirectories(solutionDir)
+			gitPath = ResolverUtils.GetAllParentDirectories(solutionDir)
 				.SelectMany(x => x.GetDirectories())
 				.FirstOrDefault(x => x.Name == ".git")
 				?.FullName;
@@ -169,23 +169,6 @@ namespace Shellbent.Resolvers
 
 			Changed?.Invoke(this);
 		}
-
-		private static IEnumerable<DirectoryInfo> GetAllParentDirectories(DirectoryInfo directoryToScan)
-		{
-			Stack<DirectoryInfo> ret = new Stack<DirectoryInfo>();
-			GetAllParentDirectories(ref ret, directoryToScan);
-			return ret;
-		}
-
-		private static void GetAllParentDirectories(ref Stack<DirectoryInfo> directories, DirectoryInfo directoryToScan)
-		{
-			if (directoryToScan == null || directoryToScan.Name == directoryToScan.Root.Name)
-				return;
-
-			directories.Push(directoryToScan);
-			GetAllParentDirectories(ref directories, directoryToScan.Parent);
-		}
-
 
 		private FileSystemWatcher fileWatcher;
 

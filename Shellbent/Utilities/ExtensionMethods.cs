@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Shellbent.Utilities
@@ -65,6 +66,13 @@ namespace Shellbent.Utilities
 			{
 				return null;
 			}
+		}
+
+
+		public static bool RegexMatches(string str, string pattern, out Match match)
+		{
+			match = Regex.Match(str, pattern);
+			return match.Success;
 		}
 	}
 }

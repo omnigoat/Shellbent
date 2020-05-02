@@ -27,7 +27,7 @@ namespace Shellbent.Utilities
 
 		public static Tuple<string, string> ParsePredicate(string x)
 		{
-			var m = Regex.Match(x, @"([a-z-]+)(\s*=~\s*(.+))?");
+			var m = Regex.Match(x, @"([a-z0-9-]+)(\s*=~\s*(.+))?");
 			if (m.Groups[3].Success)
 				return Tuple.Create(m.Groups[1].Value, m.Groups[3].Value);
 			else if (m.Success)
@@ -195,12 +195,9 @@ namespace Shellbent.Utilities
 
 			}
 			// find identifier
-			else if (pattern[i] >= 'a' && pattern[i] <= 'z')
+			else if (ExtensionMethods.RegexMatches(pattern.Substring(i), @"[a-z][a-z0-9-]*", out Match m))
 			{
-				var idenExpr = new string(pattern
-					.Substring(i)
-					.TakeWhile(x => x >= 'a' && x <= 'z' || x == '-')
-					.ToArray());
+				var idenExpr = m.Groups[0].Value;
 
 				i += idenExpr.Length;
 
@@ -233,9 +230,7 @@ namespace Shellbent.Utilities
 			{
 				result = "";
 			}
-
 			return true;
 		}
-
 	}
 }
