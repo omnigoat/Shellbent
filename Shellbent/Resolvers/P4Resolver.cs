@@ -17,7 +17,10 @@ namespace Shellbent.Resolvers
 		public P4Resolver(Models.SolutionModel solutionModel)
 			: base(new [] { "p4", "p4-client", "p4-view" })
 		{
+			OnSolutionOpened(solutionModel.StartupSolution);
+
 			solutionModel.SolutionOpened += OnSolutionOpened;
+			solutionModel.SolutionClosed += OnSolutionClosed;
 		}
 
 		private void OnSolutionOpened(EnvDTE.Solution solution)
@@ -70,7 +73,14 @@ namespace Shellbent.Resolvers
 			}
 		}
 
-		string ExtractFirstView(string str)
+		private void OnSolutionClosed()
+		{
+			p4Path = "";
+			p4Client = "";
+			p4Views = new List<string>();
+		}
+
+		private string ExtractFirstView(string str)
 		{
 			string result = "";
 			str = str.Trim();
@@ -96,7 +106,7 @@ namespace Shellbent.Resolvers
 		}
 
 		// mad theft from StackOverflow
-		string PathAddBackslash(string path)
+		private string PathAddBackslash(string path)
 		{
 			if (path == null)
 				throw new ArgumentNullException(nameof(path));

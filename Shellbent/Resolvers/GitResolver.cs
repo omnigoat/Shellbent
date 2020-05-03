@@ -90,84 +90,27 @@ namespace Shellbent.Resolvers
 				fileWatcher.EnableRaisingEvents = false;
 				fileWatcher.Dispose();
 			}
-
-			Changed?.Invoke(this);
 		}
 
 		private void ReadInfo()
 		{
-			var p = new System.Diagnostics.Process()
-			{
-				StartInfo = new System.Diagnostics.ProcessStartInfo()
-				{
-					FileName = "git.exe",
-					Arguments = "symbolic-ref -q --short HEAD",
-					UseShellExecute = false,
-					CreateNoWindow = true,
-					RedirectStandardOutput = true,
-					WorkingDirectory = gitPath
-				}
-			};
+			gitBranch = ResolverUtils.ExecuteProcess("git.exe", "symbolic-ref -q --short HEAD").Trim();
 
-			var p2 = new System.Diagnostics.Process()
-			{
-				StartInfo = new System.Diagnostics.ProcessStartInfo()
-				{
-					FileName = "git.exe",
-					Arguments = "show -s --format=\"%h|%cr\" HEAD",
-					UseShellExecute = false,
-					CreateNoWindow = true,
-					RedirectStandardOutput = true,
-					WorkingDirectory = gitPath
-				}
-			};
-
-			p.OutputDataReceived += GitBranchReceived;
-			p.Start();
-			p.BeginOutputReadLine();
-
-			p2.OutputDataReceived += GitCommitReadbackReceived;
-			p2.Start();
-			p2.BeginOutputReadLine();
-		}
-
-		private void GitBranchReceived(object sender, System.Diagnostics.DataReceivedEventArgs e)
-		{
-			if (e.Data != null)
-			{
-				lock (dataLock)
-				{
-					gitBranch = e.Data;
-				}
-
-				Changed?.Invoke(this);
-			}
-		}
-
-		private void GitCommitReadbackReceived(object sender, System.Diagnostics.DataReceivedEventArgs e)
-		{
-			if (e.Data == null)
-				return;
-
-			var data = e.Data
+			var info = ResolverUtils.ExecuteProcess("git.exe", "show -s --format=\"%h|%cr\" HEAD")
 				.Split(new char[] { '|' })
+				.Select(x => x.Trim())
 				.ToList();
 
-			lock (dataLock)
+			try
 			{
-				try
-				{
-					gitSha = data[0];
-					gitCommitTimeRelative = data[1];
-				}
-				catch
-				{
-					gitSha = "<error>";
-					gitCommitTimeRelative = "<error>";
-				}
+				gitSha = info[0];
+				gitCommitTimeRelative = info[1];
 			}
-
-			Changed?.Invoke(this);
+			catch
+			{
+				gitSha = "<error>";
+				gitCommitTimeRelative = "<error>";
+			}
 		}
 
 		private FileSystemWatcher fileWatcher;
