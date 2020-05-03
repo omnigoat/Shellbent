@@ -61,24 +61,31 @@ namespace Shellbent
 					// a selection of resolvers that satisfy the triplet
 					var state = new VsState()
 					{
-						Resolvers = Resolvers, //Resolvers.Where(r => x.Predicates.All(p => r.SatisfiesDependency(p))),
+						Resolvers = Resolvers,
 						Mode = DTE.Debugger.CurrentMode,
 						Solution = DTE.Solution
-					};	
+					};
 
 					acc.TitleBarText = acc.TitleBarText ?? Parsing.ParseFormatString(state, x.TitleBarCaption);
 					acc.TitleBarForegroundBrush = acc.TitleBarForegroundBrush ?? x.TitleBarForegroundBrush;
 					acc.TitleBarBackgroundBrush = acc.TitleBarBackgroundBrush ?? x.TitleBarBackgroundBrush;
 
-					acc.Infos = acc.Infos ?? x.Blocks?.Select(ti =>
+					var applicableBlocks = x.Blocks
+						?.Where(b => b.Predicates.All(PredicateIsSatisfied));
+
+					if (applicableBlocks != null)
 					{
-						return new Models.TitleBarInfoBlockData()
-						{
-							Text = Parsing.ParseFormatString(state, ti.Text),
-							TextBrush = ti.Foreground.NullOr(c => new SolidColorBrush(c)),
-							BackgroundBrush = ti.Background.NullOr(c => new SolidColorBrush(c))
-						};
-					}).ToList();
+						acc.Infos = acc.Infos ?? applicableBlocks
+							.Select(ti =>
+							{
+								return new Models.TitleBarInfoBlockData()
+								{
+									Text = Parsing.ParseFormatString(state, ti.Text),
+									TextBrush = ti.Foreground.NullOr(c => new SolidColorBrush(c)),
+									BackgroundBrush = ti.Background.NullOr(c => new SolidColorBrush(c))
+								};
+							}).ToList();
+					}
 
 					return acc;
 				});
@@ -103,9 +110,14 @@ namespace Shellbent
 				//.Concat(m_VsOptionsChangeProvider?.Triplets ?? new List<Settings.SettingsTriplet>())
 				.Concat(m_DefaultsChangeProvider.Triplets);
 
+		private bool PredicateIsSatisfied(Tuple<string, string> predicate)
+		{
+			return Resolvers.Any(r => r.SatisfiesDependency(predicate));
+		}
+
 		private bool TripletDependenciesAreSatisfied(Settings.SettingsTriplet triplet)
 		{
-			return triplet.Predicates.All(d => Resolvers.Any(r => r.SatisfiesDependency(d)));
+			return triplet.Predicates.All(PredicateIsSatisfied);
 		}
 
 		protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)

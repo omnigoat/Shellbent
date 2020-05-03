@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using Shellbent.Utilities;
+using Microsoft.VisualStudio.Shell;
 
 namespace Shellbent.Resolvers
 {
@@ -37,6 +38,36 @@ namespace Shellbent.Resolvers
 
 			return "";
 		}
+
+
+		public static R ApplyFunction<R>(string input, string functionName, Func<List<string>, R> func)
+		{
+			try
+			{
+				if (input.StartsWith(functionName))
+					input = input.TrimPrefix(functionName);
+
+				var m = Regex.Match(input, @"\(\s*([a-z0-9-/*.]+)(\s*,\s*([a-z0-9-/*.]+))*\s*\)");
+				if (m.Success)
+				{
+					List<string> r = new List<string>
+					{
+						m.Groups[1].Value
+					};
+
+					r.AddRange(m.Groups[3].Captures
+						.OfType<Capture>()
+						.Select(x => x.Value));
+
+					return func(r);
+				}
+			}
+			finally
+			{
+			}
+
+			return default;
+		}
 	}
 
 	public abstract class Resolver
@@ -66,9 +97,9 @@ namespace Shellbent.Resolvers
 
 		protected static bool GlobMatch(string pattern, string match)
 		{
-			return string.IsNullOrEmpty(pattern) || new Regex(
+			return string.IsNullOrEmpty(pattern) || Regex.IsMatch(match,
 				"^" + Regex.Escape(pattern).Replace(@"\*", ".*").Replace(@"\?", ".") + "$",
-				RegexOptions.IgnoreCase | RegexOptions.Singleline).IsMatch(match);
+				RegexOptions.IgnoreCase | RegexOptions.Singleline);
 		}
 
 		private readonly List<string> m_Tags;

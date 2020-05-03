@@ -16,7 +16,8 @@ namespace Shellbent.Settings
 		SolutionGlob = 1,
 		Git = 2,
 		Versionr = 4,
-		SVN = 8
+		SVN = 8,
+		P4 = 16
 	}
 
 	public class TitleBarFormat
@@ -72,6 +73,17 @@ namespace Shellbent.Settings
 	{
 		public class BlockSettings
 		{
+			[YamlMember(Alias = "predicates")]
+			public List<string> PredicateString = new List<string>();
+
+			private List<Tuple<string, string>> predicates;
+			public List<Tuple<string, string>> Predicates => predicates ??
+				(predicates = PredicateString
+					.Select(x => x.Trim())
+					.Where(x => !string.IsNullOrEmpty(x))
+					.Select(Parsing.ParsePredicate)
+					.ToList());
+
 			[YamlMember(Alias = "text")]
 			public string Text;
 
