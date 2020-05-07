@@ -10,12 +10,6 @@ namespace Shellbent.Resolvers
 {
 	public class SolutionResolver : Resolver
 	{
-		public enum CallbackReason
-		{
-			SolutionOpened,
-			SolutionClosed
-		}
-
 		internal static SolutionResolver Create(Models.SolutionModel solutionModel)
 		{
 			return new SolutionResolver(solutionModel);
@@ -24,13 +18,11 @@ namespace Shellbent.Resolvers
 		public SolutionResolver(Models.SolutionModel solutionModel)
 			: base(new [] { "solution", "solution-name", "solution-dir", "item-name", "path" })
 		{
-			OnSolutionOpened(solutionModel.StartupSolution);
-
-			solutionModel.SolutionOpened += OnSolutionOpened;
-			solutionModel.SolutionClosed += OnSolutionClosed;
+			solutionModel.SolutionAfterOpen += OnAfterOpenSolution;
+			solutionModel.SolutionAfterClosed += OnAfterSolutionClosed;
 		}
 
-		public override bool Available => solution != null;
+		public override bool Available => !string.IsNullOrEmpty(solutionName);
 
 		public override ChangedDelegate Changed { get; set; }
 
@@ -43,7 +35,7 @@ namespace Shellbent.Resolvers
 		{
 			if (tag.StartsWith("path"))
 			{
-				return SplitFunction.Parse("path", Path.DirectorySeparatorChar, tag, new FileInfo(solution.FileName).Directory.FullName);
+				return SplitFunction.Parse("path", Path.DirectorySeparatorChar, tag, new FileInfo(solutionFilepath).Directory.FullName);
 			}
 			else if ((tag == "solution-name" || tag == "item-name") && state.Solution?.FullName != null)
 				return Path.GetFileNameWithoutExtension(state.Solution.FullName);
@@ -61,24 +53,32 @@ namespace Shellbent.Resolvers
 			}
 			else
 			{
-				bool result = solution != null && new Regex(
+				bool result = !string.IsNullOrEmpty(solutionName) && new Regex(
 					Regex.Escape(d.Item2).Replace(@"\*", ".*").Replace(@"\?", "."),
-					RegexOptions.IgnoreCase | RegexOptions.Singleline).IsMatch(solution.FullName);
+					RegexOptions.IgnoreCase | RegexOptions.Singleline).IsMatch(solutionName);
 
 				return result;
 			}
 		}
 
-		private void OnSolutionOpened(Solution solution)
+		private void OnAfterOpenSolution()
 		{
-			this.solution = solution;
+			IVsSolution solution = (IVsSolution)Microsoft.VisualStudio.Shell.Package.GetGlobalService(typeof(IVsSolution));
+
+			solution.GetProperty((int)__VSPROPID.VSPROPID_SolutionBaseName, out object the_solutionName);
+			solution.GetProperty((int)__VSPROPID.VSPROPID_SolutionFileName, out object the_solutionFilepath);
+
+			solutionName = the_solutionName as string;
+			solutionFilepath = the_solutionFilepath as string;
 		}
 
-		private void OnSolutionClosed()
+		private void OnAfterSolutionClosed()
 		{
-			this.solution = null;
+			solutionName = null;
+			solutionFilepath = null;
 		}
 
-		private Solution solution;
+		private string solutionName;
+		private string solutionFilepath;
 	}
 }

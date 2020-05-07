@@ -1,36 +1,40 @@
-﻿using EnvDTE;
+﻿using VisualStudioEvents = Microsoft.VisualStudio.Shell.Events;
 
 namespace Shellbent.Models
 {
 	public class SolutionModel
 	{
-		public SolutionModel(DTE dte)
+		public SolutionModel()
 		{
-			this.dte = dte;
+			VisualStudioEvents.SolutionEvents.OnBeforeOpenSolution += 
+				(object sender, VisualStudioEvents.BeforeOpenSolutionEventArgs e) =>
+				{
+					SolutionBeforeOpen?.Invoke(e.SolutionFilename);
+				};
 
-			solutionEvents = this.dte.Events.SolutionEvents;
+			VisualStudioEvents.SolutionEvents.OnAfterOpenSolution +=
+				(object sender, VisualStudioEvents.OpenSolutionEventArgs e) =>
+				{
+					SolutionAfterOpen?.Invoke();
+				};
 
-			solutionEvents.Opened += () => SolutionOpened?.Invoke(this.dte.Solution);
-			solutionEvents.AfterClosing += () => SolutionClosed?.Invoke();
-			
-			
-			StartupSolution = dte.Solution;
+			VisualStudioEvents.SolutionEvents.OnAfterCloseSolution += (object sender, System.EventArgs e) =>
+				{
+					SolutionAfterClosed?.Invoke();
+				};
 		}
 
-		// this solution was the solution that was loaded when this plugin was
-		// initialized - i.e., the solution specified via command line. sometimes
-		// we'll have missed the Opened event by the time we're initialized, so we
-		// need to allow resolvers a chance to look at the already-loaded solution.
-		public Solution StartupSolution { get; }
+		public void SetOpenSolution()
+		{
+			SolutionAfterOpen?.Invoke();
+		}
 
-		public delegate void SolutionOpenedDelegate(Solution solution);
+		public delegate void SolutionBeforeOpenedDelegate(string solutionFilepath);
+		public delegate void SolutionAfterOpenDelegate();
 		public delegate void SolutionClosedDelegate();
 
-		public event SolutionOpenedDelegate SolutionOpened;
-		public event SolutionClosedDelegate SolutionClosed;
-
-		// members
-		private DTE dte;
-		private SolutionEvents solutionEvents;
+		public event SolutionBeforeOpenedDelegate SolutionBeforeOpen;
+		public event SolutionAfterOpenDelegate SolutionAfterOpen;
+		public event SolutionClosedDelegate SolutionAfterClosed;
 	}
 }

@@ -18,10 +18,8 @@ namespace Shellbent.Resolvers
 		public GitResolver(Models.SolutionModel solutionModel)
 			: base(new[] { "git", "git-branch", "git-sha", "git-commit-time-relative" })
 		{
-			OnSolutionOpened(solutionModel.StartupSolution);
-
-			solutionModel.SolutionOpened += OnSolutionOpened;
-			solutionModel.SolutionClosed += OnSolutionClosed;
+			solutionModel.SolutionBeforeOpen += OnBeforeSolutionOpened;
+			solutionModel.SolutionAfterClosed += OnAfterSolutionClosed;
 		}
 
 		public override bool Available => gitPath != null;
@@ -60,12 +58,12 @@ namespace Shellbent.Resolvers
 			}
 		}
 
-		private void OnSolutionOpened(Solution solution)
+		private void OnBeforeSolutionOpened(string solutionFilepath)
 		{
-			if (string.IsNullOrEmpty(solution?.FileName))
+			if (string.IsNullOrEmpty(solutionFilepath))
 				return;
 
-			var solutionDir = new FileInfo(solution.FileName).Directory;
+			var solutionDir = new FileInfo(solutionFilepath).Directory;
 
 			gitPath = ResolverUtils.GetAllParentDirectories(solutionDir)
 				.SelectMany(x => x.GetDirectories())
@@ -82,7 +80,7 @@ namespace Shellbent.Resolvers
 			}
 		}
 
-		private void OnSolutionClosed()
+		private void OnAfterSolutionClosed()
 		{
 			gitPath = null;
 			if (fileWatcher != null)

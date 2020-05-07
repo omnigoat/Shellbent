@@ -20,10 +20,8 @@ namespace Shellbent.Resolvers
 		public VsrResolver(Models.SolutionModel solutionModel)
 			: base(new[] { "vsr", "vsr-branch", "vsr-sha" })
 		{
-			OnSolutionOpened(solutionModel.StartupSolution);
-
-			solutionModel.SolutionOpened += OnSolutionOpened;
-			solutionModel.SolutionClosed += OnSolutionClosed;
+			solutionModel.SolutionBeforeOpen += OnBeforeSolutionOpened;
+			solutionModel.SolutionAfterClosed += OnAfterSolutionClosed;
 		}
 
 		public override bool Available => vsrPath != null;
@@ -45,32 +43,29 @@ namespace Shellbent.Resolvers
 				return "";
 		}
 
-		private void OnSolutionOpened(Solution solution)
+		private void OnBeforeSolutionOpened(string solutionFilepath)
 		{
-			if (string.IsNullOrEmpty(solution?.FileName))
-				return;
-
-			var solutionDir = new FileInfo(solution.FileName).Directory;
+			var solutionDir = new FileInfo(solutionFilepath).Directory;
 
 			vsrPath = GetAllParentDirectories(solutionDir)
 				.SelectMany(x => x.GetDirectories())
 				.FirstOrDefault(x => x.Name == ".versionr")?.FullName;
 
-			if (vsrPath != null)
+			if (vsrPath == null)
+				return;
+
+			watcher = new FileSystemWatcher(vsrPath)
 			{
-				watcher = new FileSystemWatcher(vsrPath)
-				{
-					IncludeSubdirectories = true
-				};
+				IncludeSubdirectories = true
+			};
 
-				watcher.Changed += VsrFolderChanged;
-				watcher.EnableRaisingEvents = true;
+			watcher.Changed += VsrFolderChanged;
+			watcher.EnableRaisingEvents = true;
 
-				ReadInfo();
-			}
+			ReadInfo();
 		}
 
-		private void OnSolutionClosed()
+		private void OnAfterSolutionClosed()
 		{
 			vsrPath = null;
 			if (watcher != null)
@@ -110,32 +105,12 @@ namespace Shellbent.Resolvers
 
 		private void ReadInfo()
 		{
-			var p = new System.Diagnostics.Process()
-			{
-				StartInfo = new System.Diagnostics.ProcessStartInfo()
-				{
-					FileName = "vsr.exe",
-					Arguments = "info --nocolours",
-					UseShellExecute = false,
-					CreateNoWindow = true,
-					RedirectStandardOutput = true,
-					WorkingDirectory = new DirectoryInfo(vsrPath).Parent.FullName.ToString()
-				}
-			};
+			string info = ResolverUtils.ExecuteProcess("vsr.exe", "info --nocolours");
 
-			p.OutputDataReceived += VsrInfoReceived;
-			p.Start();
-			p.BeginOutputReadLine();
-			p.WaitForExit();
-		}
-
-
-		private void VsrInfoReceived(object sender, System.Diagnostics.DataReceivedEventArgs e)
-		{
-			if (e.Data == null)
+			if (string.IsNullOrEmpty(info))
 				return;
-			
-			var lines = e.Data.Split('\n');
+
+			var lines = info.Split('\n');
 			bool changed = false;
 
 			// parse branch

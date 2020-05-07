@@ -1,20 +1,20 @@
 ﻿using System;
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Linq;
 using EnvDTE;
+using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
-using Task = System.Threading.Tasks.Task;
 using SettingsPageGrid = Shellbent.Settings.SettingsPageGrid;
 using System.Collections.Generic;
 using Shellbent.Resolvers;
 using System.Windows;
 using Shellbent.Utilities;
-using Microsoft.VisualStudio;
 using System.Windows.Media;
+using VisualStudioEvents = Microsoft.VisualStudio.Shell.Events;
+
+using Task = System.Threading.Tasks.Task;
 
 namespace Shellbent
 {
@@ -25,13 +25,11 @@ namespace Shellbent
 		Solution
 	}
 
-	[PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
-	[InstalledProductRegistration("#110", "#112", "1.0", IconResourceID = 400)]
 	[Guid(PackageGuidString)]
-	// [SuppressMessage("StyleCop.CSharp.DocumentationRules", "SA1650:ElementDocumentationMustBeSpelledCorrectly", Justification = "pkgdef, VS and vsixmanifest are valid VS terms")]
+	[PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
+	[InstalledProductRegistration("Shellbent", "Colourizes the shell per-project/SCM system", "1.0")]
 	[ProvideAutoLoad(UIContextGuids.NoSolution, PackageAutoLoadFlags.BackgroundLoad)]
-	//[ProvideOptionPage(typeof(SettingsPageGrid), "Title Bar None", "Settings", 101, 1000, true)]
-	public class ShellbentPackage : AsyncPackage
+	public sealed class ShellbentPackage : AsyncPackage
 	{
 		public const string PackageGuidString = "16599b2d-db6e-49cd-a76e-2b6da7343bcc";
 
@@ -90,17 +88,6 @@ namespace Shellbent
 					return acc;
 				});
 
-#if false
-		private Settings.TitleBarFormat TitleBarFormatRightNow(Settings.SettingsTriplet st)
-		{
-			if (DTE.Solution.IsOpen)
-				return st.FormatIfSolutionOpened;
-			else if (DTE.Documents.Count > 0)
-				return st.FormatIfDocumentOpened;
-			else
-				return st.FormatIfNothingOpened;
-		}
-#endif
 
 		private IEnumerable<Resolver> Resolvers => m_Resolvers.AsEnumerable().Reverse();
 
@@ -137,22 +124,32 @@ namespace Shellbent
 			}
 
 
-			// switch to UI thread
+			// switch to Main thread
 			await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-
 
 			// initialize the DTE and bind events
 			DTE = await GetServiceAsync(typeof(DTE)) as DTE;
 
-			// create models of IDE/Solution
+			// create models of IDE & Solution
+			//
+			// do this specifically after switching to the main thread so that we can
+			// set things up and know that the solution is being opened up underneath us
 			ideModel = new Models.IDEModel(DTE);
 			ideModel.WindowShown += (EnvDTE.Window w) => UpdateModelsAsync();
 			ideModel.IdeModeChanged += (dbgDebugMode mode) => m_Mode = mode;
 			ideModel.StartupComplete += UpdateModelsAsync;
 
-			solutionModel = new Models.SolutionModel(DTE);
-			solutionModel.SolutionOpened += OnSolutionOpened;
-			solutionModel.SolutionClosed += OnSolutionClosed;
+			solutionModel = new Models.SolutionModel();
+			solutionModel.SolutionBeforeOpen += OnBeforeSolutionOpened;
+			solutionModel.SolutionAfterClosed += OnAfterSolutionClosed;
+
+			//((DTE as DTE2).Events.SolutionEvents as IVsSolutionLoadEvents).OnAfterBackgroundSolutionLoadComplete
+
+			//var vss = (IVsSolution)await GetServiceAsync(typeof(SVsSolution));
+			////vss.AdviseSolutionEvents(this, out uint cookie);
+			///
+			//VisualStudioEvents.SolutionEvents.OnAfterBackgroundSolutionLoadComplete += HandleOpenSolution;
+			//VisualStudioEvents.SolutionEvents.
 
 			// create resolvers
 			m_Resolvers = new List<Resolver>
@@ -191,17 +188,22 @@ namespace Shellbent
 				w.UpdateTitleBar(d);
 		}
 
-		private void OnSolutionOpened(Solution solution)
+		private void HandleOpenSolution(object sender = null, EventArgs e = null)
 		{
-			WriteOutput("OnSolutionOpened");
+			// Handle the open solution and try to do as much work
+			// on a background thread as possible
+		}
 
+		private void OnBeforeSolutionOpened(string solutionFilepath)
+		{
 			// reset the solution-file settings file
-			m_SolutionsFileChangeProvider = new Settings.SolutionFileChangeProvider(solution.FileName);
+			m_SolutionsFileChangeProvider?.Dispose();
+			m_SolutionsFileChangeProvider = new Settings.SolutionFileChangeProvider(solutionFilepath);
 
 			UpdateModelsAsync();
 		}
 
-		private void OnSolutionClosed()
+		private void OnAfterSolutionClosed()
 		{
 			if (m_SolutionsFileChangeProvider != null)
 				m_SolutionsFileChangeProvider.Dispose();
@@ -231,8 +233,6 @@ namespace Shellbent
 
 		private void UpdateModelsAsync()
 		{
-			//var d = TitleBarData;
-
 			Application.Current.Dispatcher.Invoke(() =>
 			{
 				var (lost, discovered) = WindowsLostAndDiscovered;

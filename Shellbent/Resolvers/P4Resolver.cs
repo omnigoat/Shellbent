@@ -17,18 +17,13 @@ namespace Shellbent.Resolvers
 		public P4Resolver(Models.SolutionModel solutionModel)
 			: base(new [] { "p4", "p4-client", "p4-view" })
 		{
-			OnSolutionOpened(solutionModel.StartupSolution);
-
-			solutionModel.SolutionOpened += OnSolutionOpened;
-			solutionModel.SolutionClosed += OnSolutionClosed;
+			solutionModel.SolutionBeforeOpen += OnBeforeSolutionOpened;
+			solutionModel.SolutionAfterClosed += OnAfterSolutionClosed;
 		}
 
-		private void OnSolutionOpened(EnvDTE.Solution solution)
+		private void OnBeforeSolutionOpened(string solutionFilepath)
 		{
-			if (string.IsNullOrEmpty(solution?.FileName))
-				return;
-
-			var solutionDir = new FileInfo(solution.FileName).Directory;
+			var solutionDir = new FileInfo(solutionFilepath).Directory;
 
 			// we need to parse the output of "p4 clients" to find a matching directory
 			try
@@ -73,7 +68,7 @@ namespace Shellbent.Resolvers
 			}
 		}
 
-		private void OnSolutionClosed()
+		private void OnAfterSolutionClosed()
 		{
 			p4Path = "";
 			p4Client = "";
