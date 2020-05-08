@@ -11,7 +11,6 @@ using Shellbent.Resolvers;
 using System.Windows;
 using Shellbent.Utilities;
 using System.Windows.Media;
-using VisualStudioEvents = Microsoft.VisualStudio.Shell.Events;
 
 using Task = System.Threading.Tasks.Task;
 using Shellbent.Settings;
@@ -45,7 +44,7 @@ namespace Shellbent
 			await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
 			// create resolvers
-			m_Resolvers = new List<Resolver>
+			resolvers = new List<Resolver>
 			{
 				new IDEResolver(ideModel),
 				new SolutionResolver(solutionModel),
@@ -55,14 +54,14 @@ namespace Shellbent
 				new P4Resolver(solutionModel)
 			};
 
-			foreach (var resolver in m_Resolvers)
+			foreach (var resolver in resolvers)
 			{
 				resolver.Changed += (Resolver r) => UpdateModelsAsync();
 			}
 
 			// create settings readers for user-dir
-			m_UserDirFileChangeProvider = new Settings.UserDirFileChangeProvider();
-			m_UserDirFileChangeProvider.Changed += UpdateModelsAsync;
+			userDirFileChangeProvider = new Settings.UserDirFileChangeProvider();
+			userDirFileChangeProvider.Changed += UpdateModelsAsync;
 
 
 			// async initialize window state in case this plugin loaded after the
@@ -88,15 +87,15 @@ namespace Shellbent
 		private void OnBeforeSolutionOpened(string solutionFilepath)
 		{
 			// reset the solution-file settings file
-			m_SolutionsFileChangeProvider?.Dispose();
-			m_SolutionsFileChangeProvider = new SolutionFileChangeProvider(solutionFilepath);
+			solutionsFileChangeProvider?.Dispose();
+			solutionsFileChangeProvider = new SolutionFileChangeProvider(solutionFilepath);
 
 			UpdateModelsAsync();
 		}
 
 		private void OnAfterSolutionClosed()
 		{
-			m_SolutionsFileChangeProvider?.Dispose();
+			solutionsFileChangeProvider?.Dispose();
 
 			UpdateModelsAsync();
 		}
@@ -126,9 +125,9 @@ namespace Shellbent
 		//  - complete computed data for this point in time
 		//
 		internal Models.TitleBarData TitleBarData =>
-			SettingsTriplets
+			Settings
 				.Where(t => t.Predicates.All(PredicateIsSatisfied))
-				.Aggregate(new Models.TitleBarData(), (Models.TitleBarData acc, Settings.SettingsTriplet x) =>
+				.Aggregate(new Models.TitleBarData(), (Models.TitleBarData acc, TitleBarSetting x) =>
 				{
 					// a selection of resolvers that satisfy the triplet
 					var state = new VsState()
@@ -151,14 +150,25 @@ namespace Shellbent
 				});
 
 
+		// resolvers
+		private List<Resolver> resolvers;
 		private IEnumerable<Resolver> Resolvers =>
-			m_Resolvers.AsEnumerable();
+			resolvers.AsEnumerable();
 
-		private IEnumerable<SettingsTriplet> SettingsTriplets =>
-			m_UserDirFileChangeProvider.Triplets
-				.Concat(m_SolutionsFileChangeProvider?.Triplets ?? new List<Settings.SettingsTriplet>());
+		private IEnumerable<TitleBarSetting> Settings =>
+			userDirFileChangeProvider.Settings
+				.Concat(solutionsFileChangeProvider?.Settings ?? new List<Settings.TitleBarSetting>());
 
-		private Models.TitleBarInfoBlockData MakeTitleBarInfoBlockData(VsState state, SettingsTriplet.BlockSettings bs)
+		// models
+		private Models.SolutionModel solutionModel;
+		private Models.IDEModel ideModel;
+
+		// change providers
+		private SolutionFileChangeProvider solutionsFileChangeProvider;
+		private UserDirFileChangeProvider userDirFileChangeProvider;
+
+
+		private Models.TitleBarInfoBlockData MakeTitleBarInfoBlockData(VsState state, TitleBarSetting.BlockSettings bs)
 			=> new Models.TitleBarInfoBlockData()
 			{
 				Text = Parsing.ParseFormatString(state, bs.Text),
@@ -197,15 +207,6 @@ namespace Shellbent
 			}
 		}
 
-		// models
-		private Models.SolutionModel solutionModel;
-		private Models.IDEModel ideModel;
-
-		// resolvers
-		private List<Resolver> m_Resolvers;
-
-		// change providers
-		private Settings.SolutionFileChangeProvider m_SolutionsFileChangeProvider;
-		private Settings.UserDirFileChangeProvider m_UserDirFileChangeProvider;
+		
 	}
 }

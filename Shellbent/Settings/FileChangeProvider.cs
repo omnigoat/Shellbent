@@ -27,7 +27,7 @@ namespace Shellbent.Settings
 		}
 
 		public override event ChangedEvent Changed;
-		public override List<SettingsTriplet> Triplets => m_Triplets;
+		public override List<TitleBarSetting> Settings => settings;
 
 		public string FilePath { get; internal set; }
 
@@ -44,10 +44,10 @@ namespace Shellbent.Settings
 					if (!file.Exists || file.Name != Defaults.ConfgFileName)
 						return;
 
-					var triplets = Parsing.ParseYaml(File.ReadAllText(FilePath));
-					if (!triplets.Equals(m_Triplets))
+					var yamlSettings = Parsing.ParseYaml(File.ReadAllText(FilePath));
+					if (!yamlSettings.Equals(settings))
 					{
-						m_Triplets = triplets;
+						settings = yamlSettings;
 						Changed?.Invoke();
 					}
 
@@ -70,7 +70,7 @@ namespace Shellbent.Settings
 		private readonly string WatchingDirectory;
 		private readonly FileSystemWatcher m_Watcher;
 		
-		private List<SettingsTriplet> m_Triplets = new List<SettingsTriplet>();
+		private List<TitleBarSetting> settings = new List<TitleBarSetting>();
 
 	}
 }

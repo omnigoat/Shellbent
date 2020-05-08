@@ -14,7 +14,7 @@ namespace Shellbent.Settings
 
 		public abstract event ChangedEvent Changed;
 
-		public abstract List<SettingsTriplet> Triplets { get; }
+		public abstract List<TitleBarSetting> Settings { get; }
 
 		public void Dispose()
 		{

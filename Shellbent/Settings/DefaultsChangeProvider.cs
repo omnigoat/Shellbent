@@ -10,9 +10,9 @@ namespace Shellbent.Settings
 {
 	class DefaultsChangeProvider : ChangeProvider
 	{
-		public override List<SettingsTriplet> Triplets => new List<SettingsTriplet>
+		public override List<TitleBarSetting> Settings => new List<TitleBarSetting>
 		{
-			new SettingsTriplet {
+			new TitleBarSetting {
 				TitleBarForeground = null,
 				TitleBarBackground = null
 				

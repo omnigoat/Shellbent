@@ -20,56 +20,7 @@ namespace Shellbent.Settings
 		P4 = 16
 	}
 
-	public class TitleBarFormat
-	{
-		public TitleBarFormat(string pattern)
-		{
-			Pattern = pattern;
-		}
-
-		public TitleBarFormat(string pattern, Color? color)
-		{
-			Pattern = pattern;
-
-			if (color != null)
-				ForegroundBrush = new SolidColorBrush(color.Value);
-		}
-
-		public string Pattern;
-		public Brush ForegroundBrush;
-		public Brush BackgroundBrush;
-	}
-
-	public class TitleBarFormatConverter : TypeConverter
-	{
-		public override object ConvertTo(ITypeDescriptorContext context, CultureInfo culture, object value, Type destinationType)
-		{
-			if (destinationType == typeof(string))
-			{
-				return ((TitleBarFormat)value).Pattern;
-			}
-
-			return base.ConvertTo(context, culture, value, destinationType);
-		}
-
-		public override bool CanConvertFrom(ITypeDescriptorContext context, Type sourceType)
-		{
-			return sourceType == typeof(string) || base.CanConvertFrom(context, sourceType);
-		}
-
-		public override object ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, object value)
-		{
-			if (value is string)
-			{
-				return new TitleBarFormat(value as string);
-			}
-
-			return base.ConvertFrom(context, culture, value);
-		}
-
-	}
-
-	public class SettingsTriplet
+	public class TitleBarSetting
 	{
 		public class BlockSettings
 		{

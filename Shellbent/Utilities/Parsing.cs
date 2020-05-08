@@ -9,16 +9,16 @@ namespace Shellbent.Utilities
 {
 	static class Parsing
 	{
-		public static List<SettingsTriplet> ParseYaml(string text)
+		public static List<TitleBarSetting> ParseYaml(string text)
 		{
-			List<SettingsTriplet> root;
+			List<TitleBarSetting> root;
 			try
 			{
-				root = new YamlDotNet.Serialization.Deserializer().Deserialize<List<SettingsTriplet>>(text);
+				root = new YamlDotNet.Serialization.Deserializer().Deserialize<List<TitleBarSetting>>(text);
 			}
 			catch
 			{
-				root = new List<SettingsTriplet>();
+				root = new List<TitleBarSetting>();
 			}
 
 			return root;
