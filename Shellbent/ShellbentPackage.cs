@@ -6,7 +6,6 @@ using EnvDTE;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
-using SettingsPageGrid = Shellbent.Settings.SettingsPageGrid;
 using System.Collections.Generic;
 using Shellbent.Resolvers;
 using System.Windows;
@@ -18,13 +17,6 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Shellbent
 {
-	public enum VsEditingMode
-	{
-		Nothing,
-		Document,
-		Solution
-	}
-
 	[Guid(PackageGuidString)]
 	[PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
 	[InstalledProductRegistration("Shellbent", "Colourizes the shell per-project/SCM system", "1.0")]
@@ -37,10 +29,6 @@ namespace Shellbent
 		public const string PathTag = "Path";
 		public const string SolutionNameTag = "solution-name";
 		public const string SolutionPatternTag = "solution-pattern";
-
-		public ShellbentPackage()
-		{
-		}
 
 		public DTE DTE
 		{
@@ -94,7 +82,6 @@ namespace Shellbent
 		private IEnumerable<Settings.SettingsTriplet> SettingsTriplets =>
 			m_UserDirFileChangeProvider.Triplets
 				.Concat(m_SolutionsFileChangeProvider?.Triplets ?? new List<Settings.SettingsTriplet>())
-				//.Concat(m_VsOptionsChangeProvider?.Triplets ?? new List<Settings.SettingsTriplet>())
 				.Concat(m_DefaultsChangeProvider.Triplets);
 
 		private bool PredicateIsSatisfied(Tuple<string, string> predicate)
@@ -109,31 +96,11 @@ namespace Shellbent
 
 		protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
 		{
-			// load ResourceDictionary
-			try
-			{
-				Application.Current.Resources.MergedDictionaries.Add(
-					new ResourceDictionary
-					{
-						Source = new Uri("/Shellbent;component/Resources/Brushes.xaml", UriKind.Relative)
-					});
-			}
-			catch (Exception e)
-			{
-				WriteOutput(e.Message);
-			}
-
-
-			// switch to Main thread
-			await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+			await base.InitializeAsync(cancellationToken, progress);
 
 			// initialize the DTE and bind events
 			DTE = await GetServiceAsync(typeof(DTE)) as DTE;
 
-			// create models of IDE & Solution
-			//
-			// do this specifically after switching to the main thread so that we can
-			// set things up and know that the solution is being opened up underneath us
 			ideModel = new Models.IDEModel(DTE);
 			ideModel.WindowShown += (EnvDTE.Window w) => UpdateModelsAsync();
 			ideModel.IdeModeChanged += (dbgDebugMode mode) => m_Mode = mode;
@@ -143,18 +110,13 @@ namespace Shellbent
 			solutionModel.SolutionBeforeOpen += OnBeforeSolutionOpened;
 			solutionModel.SolutionAfterClosed += OnAfterSolutionClosed;
 
-			//((DTE as DTE2).Events.SolutionEvents as IVsSolutionLoadEvents).OnAfterBackgroundSolutionLoadComplete
-
-			//var vss = (IVsSolution)await GetServiceAsync(typeof(SVsSolution));
-			////vss.AdviseSolutionEvents(this, out uint cookie);
-			///
-			//VisualStudioEvents.SolutionEvents.OnAfterBackgroundSolutionLoadComplete += HandleOpenSolution;
-			//VisualStudioEvents.SolutionEvents.
+			// switch to Main thread
+			await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
 			// create resolvers
 			m_Resolvers = new List<Resolver>
 			{
-				IDEResolver.Create(ideModel),
+				new IDEResolver(ideModel),
 				SolutionResolver.Create(solutionModel),
 				GitResolver.Create(solutionModel),
 				VsrResolver.Create(solutionModel),
@@ -170,12 +132,6 @@ namespace Shellbent
 			// create settings readers for user-dir
 			m_UserDirFileChangeProvider = new Settings.UserDirFileChangeProvider();
 			m_UserDirFileChangeProvider.Changed += UpdateModelsAsync;
-
-
-			// get UI settings hooks
-			//UISettings = GetDialogPage(typeof(SettingsPageGrid)) as SettingsPageGrid;
-			//m_VsOptionsChangeProvider = new Settings.VsOptionsChangeProvider(UISettings);
-			//m_VsOptionsChangeProvider.Changed += UpdateModelsAsync;
 
 
 			// async initialize window state in case this plugin loaded after the
@@ -276,9 +232,6 @@ namespace Shellbent
 
 
 
-
-		// UI
-		internal SettingsPageGrid UISettings { get; private set; }
 
 		// models
 		private Models.SolutionModel solutionModel;

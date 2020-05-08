@@ -6,11 +6,6 @@ namespace Shellbent.Resolvers
 {
 	public class IDEResolver : Resolver
 	{
-		public static IDEResolver Create(Models.IDEModel ideModel)
-		{
-			return new IDEResolver(ideModel);
-		}
-
 		public IDEResolver(Models.IDEModel ideModel)
 			: base(new[] { "ide-name", "ide-mode" })
 		{
