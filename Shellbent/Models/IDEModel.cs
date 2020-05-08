@@ -26,8 +26,7 @@ namespace Shellbent.Models
 			VsMode = this.dte.Debugger.CurrentMode;
 
 			// callbacks for IDE windows being opened
-			var events2 = dte.Events as Events2;
-			if (events2 != null)
+			if (dte.Events is Events2 events2)
 			{
 				windowVisibilityEvents = events2.WindowVisibilityEvents;
 				windowVisibilityEvents.WindowShowing += (Window w) => WindowShown?.Invoke(w);
@@ -52,9 +51,11 @@ namespace Shellbent.Models
 			IdeModeChanged?.Invoke(VsMode);
 		}
 
-		private DTE dte;
-		private DTEEvents dteEvents;
-		private DebuggerEvents debuggerEvents;
-		private WindowVisibilityEvents windowVisibilityEvents;
+		// we need to save these fields on DTE as members because otherwise they
+		// can get garbage-collected
+		private readonly DTE dte;
+		private readonly DTEEvents dteEvents;
+		private readonly DebuggerEvents debuggerEvents;
+		private readonly WindowVisibilityEvents windowVisibilityEvents;
 	}
 }

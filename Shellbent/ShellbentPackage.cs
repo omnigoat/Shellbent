@@ -14,6 +14,7 @@ using System.Windows.Media;
 using VisualStudioEvents = Microsoft.VisualStudio.Shell.Events;
 
 using Task = System.Threading.Tasks.Task;
+using Shellbent.Settings;
 
 namespace Shellbent
 {
@@ -25,75 +26,6 @@ namespace Shellbent
 	{
 		public const string PackageGuidString = "16599b2d-db6e-49cd-a76e-2b6da7343bcc";
 
-		public const string SolutionSettingsOverrideExtension = ".rn.xml";
-		public const string PathTag = "Path";
-		public const string SolutionNameTag = "solution-name";
-		public const string SolutionPatternTag = "solution-pattern";
-
-		public DTE DTE
-		{
-			get;
-			private set;
-		}
-
-		internal VsState CurrentVsState =>
-			new VsState() { Resolvers = Resolvers, Mode = DTE.Debugger.CurrentMode, Solution = DTE.Solution };
-
-		internal Models.TitleBarData TitleBarData =>
-			SettingsTriplets
-				.Where(TripletDependenciesAreSatisfied)
-				.Aggregate(new Models.TitleBarData(), (Models.TitleBarData acc, Settings.SettingsTriplet x) =>
-				{
-					// a selection of resolvers that satisfy the triplet
-					var state = new VsState()
-					{
-						Resolvers = Resolvers,
-						Mode = DTE.Debugger.CurrentMode,
-						Solution = DTE.Solution
-					};
-
-					acc.TitleBarText = acc.TitleBarText ?? Parsing.ParseFormatString(state, x.TitleBarCaption);
-					acc.TitleBarForegroundBrush = acc.TitleBarForegroundBrush ?? x.TitleBarForegroundBrush;
-					acc.TitleBarBackgroundBrush = acc.TitleBarBackgroundBrush ?? x.TitleBarBackgroundBrush;
-
-					var applicableBlocks = x.Blocks
-						?.Where(b => b.Predicates.All(PredicateIsSatisfied));
-
-					if (applicableBlocks != null)
-					{
-						acc.Infos = acc.Infos ?? applicableBlocks
-							.Select(ti =>
-							{
-								return new Models.TitleBarInfoBlockData()
-								{
-									Text = Parsing.ParseFormatString(state, ti.Text),
-									TextBrush = ti.Foreground.NullOr(c => new SolidColorBrush(c)),
-									BackgroundBrush = ti.Background.NullOr(c => new SolidColorBrush(c))
-								};
-							}).ToList();
-					}
-
-					return acc;
-				});
-
-
-		private IEnumerable<Resolver> Resolvers => m_Resolvers.AsEnumerable().Reverse();
-
-		private IEnumerable<Settings.SettingsTriplet> SettingsTriplets =>
-			m_UserDirFileChangeProvider.Triplets
-				.Concat(m_SolutionsFileChangeProvider?.Triplets ?? new List<Settings.SettingsTriplet>())
-				.Concat(m_DefaultsChangeProvider.Triplets);
-
-		private bool PredicateIsSatisfied(Tuple<string, string> predicate)
-		{
-			return Resolvers.Any(r => r.SatisfiesDependency(predicate));
-		}
-
-		private bool TripletDependenciesAreSatisfied(Settings.SettingsTriplet triplet)
-		{
-			return triplet.Predicates.All(PredicateIsSatisfied);
-		}
-
 		protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
 		{
 			await base.InitializeAsync(cancellationToken, progress);
@@ -103,7 +35,6 @@ namespace Shellbent
 
 			ideModel = new Models.IDEModel(DTE);
 			ideModel.WindowShown += (EnvDTE.Window w) => UpdateModelsAsync();
-			ideModel.IdeModeChanged += (dbgDebugMode mode) => m_Mode = mode;
 			ideModel.StartupComplete += UpdateModelsAsync;
 
 			solutionModel = new Models.SolutionModel();
@@ -117,10 +48,10 @@ namespace Shellbent
 			m_Resolvers = new List<Resolver>
 			{
 				new IDEResolver(ideModel),
-				SolutionResolver.Create(solutionModel),
-				GitResolver.Create(solutionModel),
-				VsrResolver.Create(solutionModel),
-				SvnResolver.Create(solutionModel),
+				new SolutionResolver(solutionModel),
+				new GitResolver(solutionModel),
+				new VsrResolver(solutionModel),
+				new SvnResolver(solutionModel),
 				new P4Resolver(solutionModel)
 			};
 
@@ -144,6 +75,10 @@ namespace Shellbent
 				w.UpdateTitleBar(d);
 		}
 
+
+		//=========================================================
+		// event-handlers
+		//=========================================================
 		private void HandleOpenSolution(object sender = null, EventArgs e = null)
 		{
 			// Handle the open solution and try to do as much work
@@ -154,37 +89,16 @@ namespace Shellbent
 		{
 			// reset the solution-file settings file
 			m_SolutionsFileChangeProvider?.Dispose();
-			m_SolutionsFileChangeProvider = new Settings.SolutionFileChangeProvider(solutionFilepath);
+			m_SolutionsFileChangeProvider = new SolutionFileChangeProvider(solutionFilepath);
 
 			UpdateModelsAsync();
 		}
 
 		private void OnAfterSolutionClosed()
 		{
-			if (m_SolutionsFileChangeProvider != null)
-				m_SolutionsFileChangeProvider.Dispose();
+			m_SolutionsFileChangeProvider?.Dispose();
 
 			UpdateModelsAsync();
-		}
-
-		public static void WriteOutput(string str, params object[] args)
-		{
-			try
-			{
-				Application.Current.Dispatcher?.Invoke(() =>
-				{
-					var generalPaneGuid = VSConstants.OutputWindowPaneGuid.DebugPane_guid;
-					if (GetGlobalService(typeof(SVsOutputWindow)) is IVsOutputWindow outWindow)
-					{
-						outWindow.GetPane(ref generalPaneGuid, out IVsOutputWindowPane generalPane);
-						generalPane.OutputString("Shellbent: " + string.Format(str, args) + "\r\n");
-						generalPane.Activate();
-					}
-				});
-			}
-			catch
-			{
-			}
 		}
 
 		private void UpdateModelsAsync()
@@ -201,8 +115,61 @@ namespace Shellbent
 			});
 		}
 
-		private List<Models.WindowWrapper> knownWindowModels = new List<Models.WindowWrapper>();
 
+		//=========================================================
+		// members
+		//=========================================================
+		private DTE DTE { get; set; }
+
+		//
+		// TitleBarData
+		//  - complete computed data for this point in time
+		//
+		internal Models.TitleBarData TitleBarData =>
+			SettingsTriplets
+				.Where(t => t.Predicates.All(PredicateIsSatisfied))
+				.Aggregate(new Models.TitleBarData(), (Models.TitleBarData acc, Settings.SettingsTriplet x) =>
+				{
+					// a selection of resolvers that satisfy the triplet
+					var state = new VsState()
+					{
+						Resolvers = Resolvers,
+						Mode = DTE.Debugger.CurrentMode,
+						Solution = DTE.Solution
+					};
+
+					acc.TitleBarText = acc.TitleBarText ?? Parsing.ParseFormatString(state, x.TitleBarCaption);
+					acc.TitleBarForegroundBrush = acc.TitleBarForegroundBrush ?? x.TitleBarForegroundBrush;
+					acc.TitleBarBackgroundBrush = acc.TitleBarBackgroundBrush ?? x.TitleBarBackgroundBrush;
+
+					acc.Infos = acc.Infos ?? x.Blocks
+						?.Where(b => b.Predicates.All(PredicateIsSatisfied))
+						?.Select(ti => MakeTitleBarInfoBlockData(state, ti))
+						?.ToList();
+
+					return acc;
+				});
+
+
+		private IEnumerable<Resolver> Resolvers =>
+			m_Resolvers.AsEnumerable();
+
+		private IEnumerable<SettingsTriplet> SettingsTriplets =>
+			m_UserDirFileChangeProvider.Triplets
+				.Concat(m_SolutionsFileChangeProvider?.Triplets ?? new List<Settings.SettingsTriplet>());
+
+		private Models.TitleBarInfoBlockData MakeTitleBarInfoBlockData(VsState state, SettingsTriplet.BlockSettings bs)
+			=> new Models.TitleBarInfoBlockData()
+			{
+				Text = Parsing.ParseFormatString(state, bs.Text),
+				TextBrush = bs.Foreground.NullOr(c => new SolidColorBrush(c)),
+				BackgroundBrush = bs.Background.NullOr(c => new SolidColorBrush(c))
+			};
+
+		private bool PredicateIsSatisfied(Tuple<string, string> predicate)
+			=> Resolvers.Any(r => r.SatisfiesDependency(predicate));
+
+		private List<Models.WindowWrapper> knownWindowModels = new List<Models.WindowWrapper>();
 		private Tuple<List<Models.WindowWrapper>, List<Models.WindowWrapper>> WindowsLostAndDiscovered
 		{
 			get
@@ -230,21 +197,15 @@ namespace Shellbent
 			}
 		}
 
-
-
-
 		// models
 		private Models.SolutionModel solutionModel;
 		private Models.IDEModel ideModel;
 
-		// apparently these could get garbage collected otherwise
-		private dbgDebugMode m_Mode = dbgDebugMode.dbgDesignMode;
-
+		// resolvers
 		private List<Resolver> m_Resolvers;
 
+		// change providers
 		private Settings.SolutionFileChangeProvider m_SolutionsFileChangeProvider;
 		private Settings.UserDirFileChangeProvider m_UserDirFileChangeProvider;
-		//private Settings.VsOptionsChangeProvider m_VsOptionsChangeProvider;
-		private Settings.DefaultsChangeProvider m_DefaultsChangeProvider = new Settings.DefaultsChangeProvider();
 	}
 }
