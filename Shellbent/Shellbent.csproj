@@ -68,7 +68,6 @@
     <Compile Include="Resolvers\VsrResolver.cs" />
     <Compile Include="Settings\ChangeProvider.cs" />
     <Compile Include="Settings\Defaults.cs" />
-    <Compile Include="Settings\DefaultsChangeProvider.cs" />
     <Compile Include="Settings\FileChangeProvider.cs" />
     <Compile Include="Settings\Settings.cs" />
     <Compile Include="Settings\SolutionFileChangeProvider.cs" />

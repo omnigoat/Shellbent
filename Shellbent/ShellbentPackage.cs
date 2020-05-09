@@ -60,7 +60,7 @@ namespace Shellbent
 			}
 
 			// create settings readers for user-dir
-			userDirFileChangeProvider = new Settings.UserDirFileChangeProvider();
+			userDirFileChangeProvider = new UserDirFileChangeProvider();
 			userDirFileChangeProvider.Changed += UpdateModelsAsync;
 
 
@@ -150,35 +150,25 @@ namespace Shellbent
 				});
 
 
+		// change providers
+		private SolutionFileChangeProvider solutionsFileChangeProvider;
+		private UserDirFileChangeProvider userDirFileChangeProvider;
+
+		// settings
+		private IEnumerable<TitleBarSetting> Settings =>
+			userDirFileChangeProvider.Settings
+				.Concat(solutionsFileChangeProvider?.Settings ?? new List<Settings.TitleBarSetting>());
+
 		// resolvers
 		private List<Resolver> resolvers;
 		private IEnumerable<Resolver> Resolvers =>
 			resolvers.AsEnumerable();
 
-		private IEnumerable<TitleBarSetting> Settings =>
-			userDirFileChangeProvider.Settings
-				.Concat(solutionsFileChangeProvider?.Settings ?? new List<Settings.TitleBarSetting>());
-
 		// models
 		private Models.SolutionModel solutionModel;
 		private Models.IDEModel ideModel;
 
-		// change providers
-		private SolutionFileChangeProvider solutionsFileChangeProvider;
-		private UserDirFileChangeProvider userDirFileChangeProvider;
-
-
-		private Models.TitleBarInfoBlockData MakeTitleBarInfoBlockData(VsState state, TitleBarSetting.BlockSettings bs)
-			=> new Models.TitleBarInfoBlockData()
-			{
-				Text = Parsing.ParseFormatString(state, bs.Text),
-				TextBrush = bs.Foreground.NullOr(c => new SolidColorBrush(c)),
-				BackgroundBrush = bs.Background.NullOr(c => new SolidColorBrush(c))
-			};
-
-		private bool PredicateIsSatisfied(Tuple<string, string> predicate)
-			=> Resolvers.Any(r => r.SatisfiesDependency(predicate));
-
+		// windows
 		private List<Models.WindowWrapper> knownWindowModels = new List<Models.WindowWrapper>();
 		private Tuple<List<Models.WindowWrapper>, List<Models.WindowWrapper>> WindowsLostAndDiscovered
 		{
@@ -207,6 +197,17 @@ namespace Shellbent
 			}
 		}
 
-		
+		// misc functions
+		private Models.TitleBarInfoBlockData MakeTitleBarInfoBlockData(VsState state, TitleBarSetting.BlockSettings bs)
+			=> new Models.TitleBarInfoBlockData()
+			{
+				Text = Parsing.ParseFormatString(state, bs.Text),
+				TextBrush = bs.Foreground.NullOr(c => new SolidColorBrush(c)),
+				BackgroundBrush = bs.Background.NullOr(c => new SolidColorBrush(c))
+			};
+
+		private bool PredicateIsSatisfied(Tuple<string, string> predicate)
+			=> Resolvers.Any(r => r.SatisfiesDependency(predicate));
+
 	}
 }
