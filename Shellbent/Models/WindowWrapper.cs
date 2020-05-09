@@ -454,49 +454,63 @@ namespace Shellbent.Models
 			// extend background colour to the menubar
 			TitleBarVsMenu?.SetValue(Panel.BackgroundProperty, data.TitleBarBackgroundBrush);
 
-			// info-blocks
-			if (TitleBarInfoGrid == null)
-				return;
-
-			
 			// if we have an override background-colour, then calculate a nice default
 			// background-colour for the blocks, and apply it to the prime block
-			if (data.TitleBarBackgroundBrush != null)
+			if (PrimeTitleInfoBlock != null)
 			{
-				// just 25% less bright
-				PrimeTitleInfoBlock.Border.Background = new SolidColorBrush(data.TitleBarBackgroundBrush.Color * 0.75f);
+				if (data.TitleBarBackgroundBrush != null)
+				{
+					// just 25% less bright
+					PrimeTitleInfoBlock.Border.Background = new SolidColorBrush(data.TitleBarBackgroundBrush.Color * 0.75f);
+				}
+				else
+				{
+					PrimeTitleInfoBlock?.Border.ClearValue(Border.BackgroundProperty);
+				}
 			}
-			else
+
+			if (PrimeTitleInfoBlock != null)
 			{
-				PrimeTitleInfoBlock.Border.ClearValue(Border.BackgroundProperty);
-			}
-
-			// remove all previously-synthesized info-blocks
-			foreach (var block in synthesizedInfoBlocks.Select(x => x.Element))
-				TitleBarInfoGrid.Children.Remove(block);
-
-			// reset column-definitions from before
-			if (TitleBarInfoGrid.ColumnDefinitions.Count > 2)
-				TitleBarInfoGrid.ColumnDefinitions.RemoveRange(2, TitleBarInfoGrid.ColumnDefinitions.Count - 2);
-
-			if (data.Infos != null)
-			{
-				// add new column-definitions to match
-				foreach (var i in data.Infos)
-					TitleBarInfoGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-				// recalculate title-bar-infos
-				synthesizedInfoBlocks = data.Infos
-					.Select((x, idx) => new InfoBlock { Element = MakeInfoBlock(x, idx), TextColor = x.TextBrush?.Color })
-					.ToList();
-
-				// reset all colours to what we are at the time
-				Window_ActivationChanged(null, null);
-
-				// add all user-defined blocks
+				// remove all previously-synthesized info-blocks
 				foreach (var block in synthesizedInfoBlocks.Select(x => x.Element))
-					TitleBarInfoGrid.Children.Add(block);
+					TitleBarInfoGrid.Children.Remove(block);
+
+				// reset column-definitions from before
+				if (TitleBarInfoGrid.ColumnDefinitions.Count > 2)
+					TitleBarInfoGrid.ColumnDefinitions.RemoveRange(2, TitleBarInfoGrid.ColumnDefinitions.Count - 2);
+
+				if (data.Infos != null)
+				{
+					if (cachedTitleBarInfoGrid != null)
+					{
+						cachedTitleBarInfoGrid.ColumnDefinitions[1].Width = GridLength.Auto;
+					}
+				
+					// add new column-definitions to match
+					foreach (var i in data.Infos)
+						TitleBarInfoGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+					// recalculate title-bar-infos
+					synthesizedInfoBlocks = data.Infos
+						.Select((x, idx) => new InfoBlock { Element = MakeInfoBlock(x, idx), TextColor = x.TextBrush?.Color })
+						.ToList();
+
+					// reset all colours to what we are at the time
+					Window_ActivationChanged(null, null);
+
+					// add all user-defined blocks
+					foreach (var block in synthesizedInfoBlocks.Select(x => x.Element))
+						TitleBarInfoGrid.Children.Add(block);
+				}
+				else if (cachedTitleBarInfoGrid != null)
+				{
+					// reflow the measuring of the prime info-block back to default values so that if we 
+					// open a new solution it will correctly update to the bounds of the new solution's name
+					cachedTitleBarInfoGrid.ColumnDefinitions[1].Width = new GridLength(1, GridUnitType.Star);
+					cachedTitleBarInfoGrid.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+				}
 			}
+			
 		}
 
 		protected struct InfoBlock
@@ -525,11 +539,7 @@ namespace Shellbent.Models
 			cachedTitleBarInfoGrid ??
 			(cachedTitleBarInfoGrid = TitleBar
 				?.GetElement<ContentControl>("PART_SolutionInfoControlHost")
-				?.GetElement<Grid>()
-				.WithNotNull(x =>
-				{
-					x.ColumnDefinitions[1].Width = GridLength.Auto;
-				}));
+				?.GetElement<Grid>());
 
 		private TitleInfoBlock cachedPrimeTitleInfoBlock;
 		private TitleInfoBlock PrimeTitleInfoBlock =>

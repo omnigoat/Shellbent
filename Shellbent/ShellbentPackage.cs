@@ -37,9 +37,7 @@ namespace Shellbent
 			ideModel.StartupComplete += UpdateModelsAsync;
 
 			solutionModel = new Models.SolutionModel();
-			solutionModel.SolutionBeforeOpen += OnBeforeSolutionOpened;
-			solutionModel.SolutionAfterClosed += OnAfterSolutionClosed;
-
+			
 			// switch to Main thread
 			await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
@@ -54,14 +52,20 @@ namespace Shellbent
 				new P4Resolver(solutionModel)
 			};
 
+			// create settings readers for user-dir
+			userDirFileChangeProvider = new UserDirFileChangeProvider();
+			userDirFileChangeProvider.Changed += UpdateModelsAsync;
+
+			// call after resolvers get a chance
+			solutionModel.SolutionBeforeOpen += OnBeforeSolutionOpened;
+			solutionModel.SolutionAfterClosed += OnAfterSolutionClosed;
+
 			foreach (var resolver in resolvers)
 			{
 				resolver.Changed += (Resolver r) => UpdateModelsAsync();
 			}
 
-			// create settings readers for user-dir
-			userDirFileChangeProvider = new UserDirFileChangeProvider();
-			userDirFileChangeProvider.Changed += UpdateModelsAsync;
+			
 
 
 			// async initialize window state in case this plugin loaded after the
@@ -78,12 +82,6 @@ namespace Shellbent
 		//=========================================================
 		// event-handlers
 		//=========================================================
-		private void HandleOpenSolution(object sender = null, EventArgs e = null)
-		{
-			// Handle the open solution and try to do as much work
-			// on a background thread as possible
-		}
-
 		private void OnBeforeSolutionOpened(string solutionFilepath)
 		{
 			// reset the solution-file settings file
