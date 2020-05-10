@@ -14,6 +14,8 @@ using System.Windows.Media;
 
 using Task = System.Threading.Tasks.Task;
 using Shellbent.Settings;
+using System.Windows.Threading;
+using System.Threading.Tasks;
 
 namespace Shellbent
 {
@@ -21,6 +23,8 @@ namespace Shellbent
 	[PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
 	[InstalledProductRegistration("Shellbent", "Colourizes the shell per-project/SCM system", "1.0")]
 	[ProvideAutoLoad(UIContextGuids.NoSolution, PackageAutoLoadFlags.BackgroundLoad)]
+	[ProvideAutoLoad(UIContextGuids.EmptySolution, PackageAutoLoadFlags.BackgroundLoad)]
+	[ProvideAutoLoad(UIContextGuids.SolutionExists, PackageAutoLoadFlags.BackgroundLoad)]
 	public sealed class ShellbentPackage : AsyncPackage
 	{
 		public const string PackageGuidString = "16599b2d-db6e-49cd-a76e-2b6da7343bcc";
@@ -33,14 +37,11 @@ namespace Shellbent
 			DTE = await GetServiceAsync(typeof(DTE)) as DTE;
 
 			ideModel = new Models.IDEModel(DTE);
-			ideModel.WindowShown += (EnvDTE.Window w) => UpdateModelsAsync();
-			ideModel.StartupComplete += UpdateModelsAsync;
+			ideModel.WindowShown += (EnvDTE.Window w) => UpdateModels();
+			ideModel.StartupComplete += UpdateModels;
 
 			solutionModel = new Models.SolutionModel();
 			
-			// switch to Main thread
-			await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-
 			// create resolvers
 			resolvers = new List<Resolver>
 			{
@@ -54,7 +55,7 @@ namespace Shellbent
 
 			// create settings readers for user-dir
 			userDirFileChangeProvider = new UserDirFileChangeProvider();
-			userDirFileChangeProvider.Changed += UpdateModelsAsync;
+			userDirFileChangeProvider.Changed += UpdateModels;
 
 			// call after resolvers get a chance
 			solutionModel.SolutionBeforeOpen += OnBeforeSolutionOpened;
@@ -62,20 +63,14 @@ namespace Shellbent
 
 			foreach (var resolver in resolvers)
 			{
-				resolver.Changed += (Resolver r) => UpdateModelsAsync();
+				resolver.Changed += (Resolver r) => UpdateModels();
 			}
 
-			
-
-
-			// async initialize window state in case this plugin loaded after the
-			// IDE was brought up, because this plugin loads async to the UI
-			var d = TitleBarData;
-
-			// we are the UI thread
-			var (_, discovered) = WindowsLostAndDiscovered;
-			foreach (var w in discovered)
-				w.UpdateTitleBar(d);
+			// a solution may already be open
+			if (await IsSolutionLoadedAsync() is string solutionFilepath && !string.IsNullOrEmpty(solutionFilepath))
+			{
+				solutionModel.SetOpenSolution(solutionFilepath);
+			}
 		}
 
 
@@ -88,21 +83,24 @@ namespace Shellbent
 			solutionsFileChangeProvider?.Dispose();
 			solutionsFileChangeProvider = new SolutionFileChangeProvider(solutionFilepath);
 
-			UpdateModelsAsync();
+			UpdateModels();
 		}
 
 		private void OnAfterSolutionClosed()
 		{
 			solutionsFileChangeProvider?.Dispose();
 
-			UpdateModelsAsync();
+			UpdateModels();
 		}
 
-		private void UpdateModelsAsync()
+		private void UpdateModels()
 		{
-			Application.Current.Dispatcher.Invoke(() =>
+			ThreadHelper.JoinableTaskFactory.Run(async delegate
 			{
-				var (lost, discovered) = WindowsLostAndDiscovered;
+				// we just need to reevaluate all known windows
+				var _ = WindowsLostAndDiscovered;
+
+				await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
 				// update all models
 				foreach (var x in knownWindowModels)
@@ -111,6 +109,37 @@ namespace Shellbent
 				}
 			});
 		}
+
+
+		//=========================================================
+		// utilities
+		//=========================================================
+		private async Task<string> IsSolutionLoadedAsync()
+		{
+			var solService = await GetServiceAsync(typeof(SVsSolution)) as IVsSolution;
+			await JoinableTaskFactory.SwitchToMainThreadAsync();
+
+			ErrorHandler.ThrowOnFailure(solService.GetProperty((int)__VSPROPID.VSPROPID_IsSolutionOpen, out object value));
+			if (value is bool open && open)
+			{
+				ErrorHandler.ThrowOnFailure(solService.GetProperty((int)__VSPROPID.VSPROPID_SolutionFileName, out object filename));
+				if (filename is string file && !string.IsNullOrEmpty(file))
+					return file;
+			}
+
+			return null;
+		}
+
+		private Models.TitleBarInfoBlockData MakeTitleBarInfoBlockData(VsState state, TitleBarSetting.BlockSettings bs)
+			=> new Models.TitleBarInfoBlockData()
+			{
+				Text = Parsing.ParseFormatString(state, bs.Text),
+				TextBrush = bs.Foreground.NullOr(c => new SolidColorBrush(c)),
+				BackgroundBrush = bs.Background.NullOr(c => new SolidColorBrush(c))
+			};
+
+		private bool PredicateIsSatisfied(Tuple<string, string> predicate)
+			=> Resolvers.Any(r => r.SatisfiesDependency(predicate));
 
 
 		//=========================================================
@@ -194,18 +223,5 @@ namespace Shellbent
 				return Tuple.Create(lost, discovered);
 			}
 		}
-
-		// misc functions
-		private Models.TitleBarInfoBlockData MakeTitleBarInfoBlockData(VsState state, TitleBarSetting.BlockSettings bs)
-			=> new Models.TitleBarInfoBlockData()
-			{
-				Text = Parsing.ParseFormatString(state, bs.Text),
-				TextBrush = bs.Foreground.NullOr(c => new SolidColorBrush(c)),
-				BackgroundBrush = bs.Background.NullOr(c => new SolidColorBrush(c))
-			};
-
-		private bool PredicateIsSatisfied(Tuple<string, string> predicate)
-			=> Resolvers.Any(r => r.SatisfiesDependency(predicate));
-
 	}
 }

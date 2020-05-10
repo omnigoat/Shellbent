@@ -24,8 +24,9 @@ namespace Shellbent.Models
 				};
 		}
 
-		public void SetOpenSolution()
+		public void SetOpenSolution(string filepath)
 		{
+			SolutionBeforeOpen?.Invoke(filepath);
 			SolutionAfterOpen?.Invoke();
 		}
 
