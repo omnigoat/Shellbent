@@ -8,7 +8,7 @@ namespace Shellbent.Settings
 {
 	static class Defaults
 	{
-		public const string ConfgFileName = ".title-bar-none";
+		public const string ConfgFileName = ".shellbent";
 
 		public const string PatternIfNothingOpen = "$ide-name";
 		public const string PatternIfDocumentOpen = "$document-name - $ide-name";

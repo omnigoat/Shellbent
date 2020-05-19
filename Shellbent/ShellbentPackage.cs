@@ -97,10 +97,10 @@ namespace Shellbent
 		{
 			ThreadHelper.JoinableTaskFactory.Run(async delegate
 			{
+				await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
 				// we just need to reevaluate all known windows
 				var _ = WindowsLostAndDiscovered;
-
-				await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
 				// update all models
 				foreach (var x in knownWindowModels)

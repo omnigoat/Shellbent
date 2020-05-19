@@ -13,17 +13,35 @@ namespace Shellbent.Settings
 		public FileChangeProvider(string filepath)
 		{
 			FilePath = filepath;
-			if (!File.Exists(FilePath) || Path.GetFileName(FilePath) != Defaults.ConfgFileName)
+			if (Path.GetFileName(FilePath) != Defaults.ConfgFileName)
 				return;
 
 			// file system watcher
 			WatchingDirectory = Path.GetDirectoryName(FilePath);
 			m_Watcher = new FileSystemWatcher(WatchingDirectory, Defaults.ConfgFileName);
+			m_Watcher.Created += Watcher_Changed;
 			m_Watcher.Changed += Watcher_Changed;
-
+			m_Watcher.Deleted += Watcher_Changed;
+			m_Watcher.Renamed += Watcher_Renamed;
 			Watcher_Changed(null, new FileSystemEventArgs(WatcherChangeTypes.Created, WatchingDirectory, filepath));
 
 			m_Watcher.EnableRaisingEvents = true;
+		}
+
+		private void Watcher_Renamed(object sender, RenamedEventArgs e)
+		{
+			// if someone renamed the config-file to something else
+			if (e.OldFullPath == FilePath)
+			{
+				settings = new List<TitleBarSetting>();
+				Changed?.Invoke();
+			}
+			// a random file renamed to config-file name
+			else
+			{
+				var file = new FileInfo(e.FullPath);
+				Watcher_Changed(sender, new FileSystemEventArgs(WatcherChangeTypes.Created, file.DirectoryName, file.Name));
+			}
 		}
 
 		public override event ChangedEvent Changed;
@@ -33,30 +51,37 @@ namespace Shellbent.Settings
 
 		protected virtual void Watcher_Changed(object sender, FileSystemEventArgs e)
 		{
-			List<string> lines = new List<string>();
+			if (e.FullPath != FilePath)
+				return;
 
-			for (int i = 0; i != 3; ++i)
+			if (e.ChangeType != WatcherChangeTypes.Deleted)
 			{
-				try
+				for (int i = 0; i != 3; ++i)
 				{
-					Thread.Sleep(100);
-					var file = new FileInfo(FilePath);
-					if (!file.Exists || file.Name != Defaults.ConfgFileName)
-						return;
-
-					var yamlSettings = Parsing.ParseYaml(File.ReadAllText(FilePath));
-					if (!yamlSettings.Equals(settings))
+					try
 					{
-						settings = yamlSettings;
-						Changed?.Invoke();
-					}
+						Thread.Sleep(100);
+						var file = new FileInfo(FilePath);
+						if (!file.Exists)
+							continue;
 
-					break;
-				}
-				catch (IOException)
-				{
+						var yamlSettings = Parsing.ParseYaml(File.ReadAllText(FilePath));
+						if (!yamlSettings.Equals(settings))
+						{
+							settings = yamlSettings;
+							Changed?.Invoke();
+							return;
+						}
+					}
+					catch (IOException)
+					{
+					}
 				}
 			}
+
+			// either deleted or bad read = zero settings
+			settings = new List<TitleBarSetting>();
+			Changed?.Invoke();
 		}
 
 		// IDisposable implementation

@@ -3,7 +3,8 @@
     <Metadata>
         <Identity Id="Shellbent.684c38e6-49bd-4989-b4fb-7d7c9003b3aa" Version="1.3" Language="en-US" Publisher="Jonathan Runting" />
         <DisplayName>Shellbent</DisplayName>
-        <Description xml:space="preserve">Customise your title bar's text &amp; colour with rules based off the current state of your source control, the solution's path, and more!</Description>
+        <Description xml:space="preserve">Customise the Title Bar based off the current state of your source control, the current solution, and more.</Description>
+        <Icon>Resources\ShellbentPackage.ico</Icon>
     </Metadata>
     <Installation>
         <InstallationTarget Id="Microsoft.VisualStudio.Pro" Version="[15.0, 17.0)" />
