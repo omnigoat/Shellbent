@@ -28,7 +28,21 @@ namespace Shellbent.Resolvers
 			// we need to parse the output of "p4 clients" to find a matching directory
 			try
 			{
-				var clients = ResolverUtils.ExecuteProcess("p4.exe", "clients");
+				var user = ResolverUtils.ExecuteProcess("p4.exe", "user -o");
+				if (user == null)
+					return;
+
+				var username = user
+					.Split('\n')
+					.Select(x => Regex.Match(x, @"^User:\t(.+)"))
+					.Where(r => r.Success)
+					.Select(r => r.Groups[1].Value.Trim())
+					.FirstOrDefault();
+
+				if (string.IsNullOrEmpty(username))
+					return;
+
+				var clients = ResolverUtils.ExecuteProcess("p4.exe", $"clients -u \"{username}\"");
 				if (clients == null)
 					return;
 
