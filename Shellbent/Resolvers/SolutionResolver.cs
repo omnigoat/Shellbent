@@ -16,7 +16,7 @@ namespace Shellbent.Resolvers
 		}
 
 		public SolutionResolver(Models.SolutionModel solutionModel)
-			: base(new [] { "solution", "solution-name", "solution-dir", "item-name", "path" })
+			: base(new [] { "solution", "solution-name", "solution-path", "item-name", "path" })
 		{
 			solutionModel.SolutionAfterOpen += OnAfterOpenSolution;
 			solutionModel.SolutionAfterClosed += OnAfterSolutionClosed;
@@ -39,7 +39,7 @@ namespace Shellbent.Resolvers
 			}
 			else if ((tag == "solution-name" || tag == "item-name") && state.Solution?.FullName != null)
 				return Path.GetFileNameWithoutExtension(state.Solution.FullName);
-			else if (tag == "solution-dir")
+			else if (tag == "solution-path")
 				return Path.GetFileName(Path.GetDirectoryName(state.Solution.FileName)) + "\\";
 			else
 				throw new InvalidOperationException();
@@ -47,11 +47,7 @@ namespace Shellbent.Resolvers
 
 		public override bool SatisfiesDependency(Tuple<string, string> d)
 		{
-			if (string.IsNullOrEmpty(d.Item2))
-			{
-				return false;
-			}
-			else
+			if (d.Item1 == "solution-name")
 			{
 				bool result = !string.IsNullOrEmpty(solutionName) && new Regex(
 					Regex.Escape(d.Item2).Replace(@"\*", ".*").Replace(@"\?", "."),
@@ -59,6 +55,14 @@ namespace Shellbent.Resolvers
 
 				return result;
 			}
+			else if (d.Item1 == "solution-path")
+			{
+				return !string.IsNullOrEmpty(solutionFilepath) && new Regex(
+					Regex.Escape(d.Item2).Replace(@"\*", ".*").Replace(@"\?", "."),
+					RegexOptions.IgnoreCase | RegexOptions.Singleline).IsMatch(solutionFilepath);
+			}
+
+			return false;
 		}
 
 		private void OnAfterOpenSolution()

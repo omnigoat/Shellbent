@@ -4,41 +4,112 @@ Hello.
 
 
 ## what it is
-Shellbent allows you to change Visual Studio's title bar's text & colour, based off the file-system path of the solution file, and/or the repository information of either git, svn, or versionr source-control systems.
+Shellbent is a Visual Studio plugin that allows you to change the Visual Studio title-bar text & colour. It can react and display information from the file-system path of the solution file, and the repository information of either Git, Svn, Perforce, or Versionr source-control systems.
 
-## settings
-To use Shellbent, place a file called `.title-bar-none` in your user directory. Shellbent will watch the file and make changes in real time, so you can iterate on your works of art.
+## settings file
+Shellbent is configured through settings files named `.shellbent` in either the user directory, or a parent directory of a Visual Studio solution. Shellbent will respond to changes to the file(s) in realtime, so you may quickly iterate on your works of art. The per-solution settings file takes priority over the user directory settings file. The per-solution file is the first `.shellbent` file found walking up the directory tree from the loaded solution's `.sln` file location.
 
-## pattern groups
-This file contains pattern-groups definining the behaviour of the title bar under various circumstances. These pattern-groups are activated when the associated _filter_ is satisfied. Pattern-groups are allowed to override previously seen pattern-groups, sequentially down the file (a.k.a. last takes precedence).
+## settings format
+The settings files are written in YAML.
+
+The top-level element is an array of objects that configure Visual Studio. The ordering is important, as the settings are visited in-order until satisfied. Placing a catch-all setting at the bottom makes sense.
+
+The configuration object contains the fields:
+ * **predicates**\
+ This is a list of strings that determine if the object is applicable for a given situation.\
+ \
+  A list of predicates is given below.
+  
+    ``` yaml
+    # this configuration object is only applicable when we're in a git repo
+    - predicates: [git]
+
+    # this configuration object is only applicable when we're in the master branch
+    # this naturally implies the "git" predicate
+    - predicates: [git-branch =~ master]
+
+    # combining predicates for very specific behaviour
+    - predicates: [solution-name =~ Shellbent, git-branch =~ release]
+    ```
+
+ * **title-bar-caption**\
+ A string that takes a template that will be used to format the text display in the title-bar of Visual Studio 2017, and modifies the thumbnail caption for both Visual Studio 2017 & 2019. (Visual Studio 2019 does not have a traditional title-bar).\
+ \
+ The template format is defined further down below.
+    ``` yaml
+    # this is the standard title-bar template that mimics Visual Studio
+      title-bar-caption: $item-name?ide-mode{ $} - $ide-name
+    ```
+ * **title-bar-background**\
+ For Visual Studio 2017 changes the background colour of the title-bar. On 2019 it changes the background colour of the menu-bar that serves as the title-bar.
+    ``` yaml
+    # a dark blue background
+      title-bar-background: "#224"
+    ```
+
+ * **title-bar-foreground**\
+ For Visual Studio 2017 changes the text of color of the title-bar. Does not affect Visual Studio 2019.
+
+ * **blocks**\
+ An array of setting objects that apply only to Visual Studio 2019. These add additional blocks of information to the right of the item-name block that replaced the title-bar for Visual Studio 2019.
+    ``` yaml
+    # add git information in three separate blocks
+    - blocks:
+      - text: $git-branch
+        foreground: "#cc6"
+      - text: $git-sha
+        foreground: "#acf"
+      - text: $git-commit-time-relative
+        foreground: "#4d9" 
+    ```
+    Result:\
+    ![blocks example](docs/git_blocks.png)
 
 
-The sytnax is for defining a pattern-group is:
 
-`pattern-group[`_filters_`]:`<br />
-` - (item-opened|solution-opened|document-opened|nothing-opened): `_pattern_
+## predicates
 
+Predicates allow a configuration to be limited to certain situations.
 
-## filters
+**Basic filters** \
+These check if various source-control systems are present. This is done by recursing up the folder heirarchy of the solution/document. These basic filters are:
+ * `git`
+ * `vsr`
+ * `svn`
+ * `p4`
 
-Filters allow pattern-groups to be limited to certain situations.
+Example
+``` yaml
+# solution part of a git repo
+- predicates: [git]
 
-**Basic filters** check if various source-control systems are present. This is done by recursing up the folder heirarchy of the solution/document. These basic filters are: `git`, `vsr`, `svn`,
-along with `git-branch`, `vsr-branch`
+# solution part of a git repo & a p4 repo
+- predicates: [git, p4]
+```
 
-**Regex filters** allow you to match a property against a basic glob regex. There's only `solution` available, which allows you to match against the solution name.
+**Regex filters**\
+Regex filters llow you to match a property against a basic glob regex. This is specified with the regex operator `=~`. The available properties are:
+ * `git-branch`
+ * `git-sha`
+ * `p4-client`
+ * `p4-view` *
+ * `svn-url`
+ * `vsr-branch`
+ * `vsr-sha`
+ * `solution-name`
+ * `solution-path`
 
 Examples:
 
-```
+``` yaml
 # only matches against solutions that are called best_solution
-pattern-group[solution =~ best_solution]:
+pattern-group[solution-name =~ best_solution]:
 
 # matches against solutions that begin with 'best-', and end with '-dragon'
-pattern-group[solution =~ best-*-dragon]:
+pattern-group[solution-name =~ best-*-dragon]:
 
 # matches when the solution 'awkward_dragon' is part of a git repository
-pattern-group[git, solution =~ awkward_dragon]:
+pattern-group[git, solution-name =~ awkward_dragon]:
 ```
 
 ## pattern group directives
