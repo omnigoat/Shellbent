@@ -72,7 +72,8 @@ The configuration object contains the fields:
 Predicates allow a configuration to be limited to certain situations.
 
 **Basic filters** \
-These check if various source-control systems are present. This is done by recursing up the folder heirarchy of the solution/document. These basic filters are:
+These filters are a boolean yes or no value if the given state is available. The filter `solution` evaluates to `true` if a solution is loaded. The remaining filters are about the presence of source-control systems. This is determined by recursing up the folder heirarchy of the solution/document. These basic filters are:
+ * `solution`
  * `git`
  * `vsr`
  * `svn`
@@ -102,21 +103,15 @@ Regex filters llow you to match a property against a basic glob regex. This is s
 Examples:
 
 ``` yaml
-# only matches against solutions that are called best_solution
-pattern-group[solution-name =~ best_solution]:
+# only matches against solutions that are called exactly best_solution
+- predicates: [solution-name =~ best_solution]:
 
 # matches against solutions that begin with 'best-', and end with '-dragon'
-pattern-group[solution-name =~ best-*-dragon]:
+- predicates: [solution-name =~ best-*-dragon]:
 
 # matches when the solution 'awkward_dragon' is part of a git repository
-pattern-group[git, solution-name =~ awkward_dragon]:
+- predicates: [git, solution-name =~ awkward_dragon]:
 ```
-
-## pattern group directives
-
-Directives tell Title Bar None what to do. Under a pattern-group, several directives can be defined. `solution-opened` applies when a solution is open (surprise!). `document-opened` applies when a document has been opeend in Visual Studio without a solution being open. `item-opened` applies in both cases, and is your go-to thing to change. `color` changes the colour of the Title Bar. 
-
-`nothing-opened` currently doesn't work. Oh well!
 
 ## patterns
 
@@ -147,7 +142,7 @@ Tags are enabled by prefixing with `$`, or `?`. Enclosing scopes are defined wit
 
 # examples
 
-```
+``` yaml
 # here, this pattern group is enabled if we're in a git repository. we always prefix with
 # the git branch, then the item-name (provided by Visual Studio), then, *if* the IDE Mode
 # is available, we provide a space followed by the ide-mode. Then the IDE name, followed
