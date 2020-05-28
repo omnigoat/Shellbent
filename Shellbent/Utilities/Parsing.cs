@@ -28,6 +28,7 @@ namespace Shellbent.Utilities
 		public static Tuple<string, string> ParsePredicate(string x)
 		{
 			var m = Regex.Match(x, @"([a-z0-9-]+)(\s*=~\s*(.+))?");
+
 			if (m.Groups[3].Success)
 				return Tuple.Create(m.Groups[1].Value, m.Groups[3].Value);
 			else if (m.Success)
@@ -94,9 +95,9 @@ namespace Shellbent.Utilities
 
 			i += 1 + tag.Length;
 
-			bool valid = state.Resolvers
-				.FirstOrDefault(x => x.Applicable(tag))
-				?.ResolveBoolean(state, tag) ?? false;
+			var applicableResolver = state.Resolvers.FirstOrDefault(x => x.Resolvable(state, tag));
+
+			bool valid = applicableResolver != null;
 
 			if (i == pattern.Length)
 			{
@@ -124,9 +125,7 @@ namespace Shellbent.Utilities
 				}
 				else
 				{
-					var transformed_tag = state.Resolvers
-						.FirstOrDefault(x => x.Applicable(tag))
-						?.Resolve(state, tag);
+					var transformed_tag = applicableResolver.Resolve(state, tag);
 
 					var inner = new string(pattern
 						.Substring(i + 1)
@@ -188,8 +187,9 @@ namespace Shellbent.Utilities
 					.Select(x =>
 					{
 						return state.Resolvers
-						.FirstOrDefault(r => r.Applicable(x))
-						?.Resolve(state, x) ?? x;
+							.FirstOrDefault(r => r.Applicable(x))
+							?.Resolve(state, x)
+							?? x;
 					})
 					.Aggregate((a, b) => a + " " + b);
 

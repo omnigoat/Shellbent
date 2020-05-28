@@ -17,7 +17,7 @@ namespace Shellbent.Resolvers
 
 		public override ChangedDelegate Changed { get; set; }
 
-		public override bool ResolveBoolean(VsState state, string tag)
+		protected override bool ResolvableImpl(VsState state, string tag)
 		{
 			if (tag == "ide-mode")
 				return (state.Mode != dbgDebugMode.dbgDesignMode);
@@ -27,12 +27,12 @@ namespace Shellbent.Resolvers
 
 		public override string Resolve(VsState state, string tag)
 		{
-			if (tag == "ide-name")
-				return "Microsoft Visual Studio";
-			else if (tag == "ide-mode")
-				return GetModeTitle(state);
-			else
-				return null;
+			switch (tag)
+			{
+				case "ide-name": return "Microsoft Visual Studio";
+				case "ide-mode": return GetModeTitle(state);
+				default: return string.Empty;
+			}
 		}
 
 		private void OnModeChanged(dbgDebugMode mode)

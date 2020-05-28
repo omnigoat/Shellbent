@@ -36,28 +36,14 @@ namespace Shellbent.Resolvers
 
 		public override ChangedDelegate Changed { get; set; }
 
-		public override bool SatisfiesDependency(Tuple<string, string> d)
+		protected override bool SatisfiesPredicateImpl(string tag, string value)
 		{
-			if (!Available)
-				return false;
-
-			if (d.Item1 == "svn-url")
+			switch (tag)
 			{
-				return GlobMatch(d.Item2, svnUrl);
+				case "svn": return true;
+				case "svn-url": return GlobMatch(value, svnUrl);
+				default: return false;
 			}
-			else if (d.Item1 == "svn")
-			{
-				return true;
-			}
-			else
-			{
-				return false;
-			}
-		}
-
-		public override bool ResolveBoolean(VsState state, string tag)
-		{
-			return tag == "svn";
 		}
 
 		public override string Resolve(VsState state, string tag)

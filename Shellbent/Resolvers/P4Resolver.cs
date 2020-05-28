@@ -205,21 +205,13 @@ namespace Shellbent.Resolvers
 			}
 		}
 
-		public override bool ResolveBoolean(VsState state, string tag)
+		protected override bool SatisfiesPredicateImpl(string tag, string value)
 		{
-			return tag == "p4";
-		}
-
-		public override bool SatisfiesDependency(Tuple<string, string> d)
-		{
-			if (!Available)
-				return false;
-
-			switch (d.Item1)
+			switch (tag)
 			{
-				case "p4": return Available;
-				case "p4-client": return GlobMatch(d.Item2, p4Client);
-				case "p4-view": return p4Views.Any(v => GlobMatch(d.Item2, v));
+				case "p4": return true;
+				case "p4-client": return GlobMatch(value, p4Client);
+				case "p4-view": return p4Views.Any(v => GlobMatch(value, v));
 
 				default: return false;
 			}

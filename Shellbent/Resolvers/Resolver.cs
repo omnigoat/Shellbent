@@ -77,22 +77,45 @@ namespace Shellbent.Resolvers
 			m_Tags = tags.ToList();
 		}
 
-		public abstract bool Available { get; }
-
 		public delegate void ChangedDelegate(Resolver resolver);
 		public abstract ChangedDelegate Changed { get; set; }
+		
+		
+		// true if the resolver is in a state where it can resolve tags
+		public abstract bool Available { get; }
 
+		// returns true if the resolver responds to the given tag
 		public bool Applicable(string tag)
 		{
-			return m_Tags.Any(x => ExtensionMethods.RegexMatches(tag, @"[a-z][a-z0-9-]*", out Match m) && m.Groups[0].Value == x);
+			return ResolverUtils.ExtractTag(tag, out string r) && m_Tags.Contains(r);
 		}
 
-		public abstract bool ResolveBoolean(VsState state, string tag);
+		// returns true if @value of type @tag is valid for the current state
+		public bool SatisfiesPredicate(string tag, string value)
+		{
+			return Applicable(tag) && Available && SatisfiesPredicateImpl(tag, value);
+		}
+
+		// returns true if the tag is resolvable given the current application state
+		public bool Resolvable(VsState state, string tag)
+		{
+			return Applicable(tag) && Available && ResolvableImpl(state, tag);
+		}
+
+		// returns the string of a tag.
 		public abstract string Resolve(VsState state, string tag);
 
-		public virtual bool SatisfiesDependency(Tuple<string, string> d)
+
+
+
+		protected virtual bool SatisfiesPredicateImpl(string tag, string value)
 		{
 			return false;
+		}
+
+		protected virtual bool ResolvableImpl(VsState state, string tag)
+		{
+			return true;
 		}
 
 		protected static bool GlobMatch(string pattern, string match)
@@ -107,6 +130,17 @@ namespace Shellbent.Resolvers
 
 	internal static class ResolverUtils
 	{
+		public static bool ExtractTag(string tag, out string result)
+		{
+			result = null;
+			var m = Regex.Match(tag, @"[a-z][a-z0-9-]*");
+			if (!m.Success)
+				return false;
+
+			result = m.Groups[0].Value;
+			return true;
+		}
+
 		// GetAllParentDirectories
 		public static IEnumerable<DirectoryInfo> GetAllParentDirectories(DirectoryInfo directoryToScan)
 		{
@@ -124,7 +158,9 @@ namespace Shellbent.Resolvers
 			GetAllParentDirectories(ref directories, directoryToScan.Parent);
 		}
 
-		// thing
+
+
+		// ExecuteProcess
 		private const int ProcessTimeout = 5000;
 
 		public static string ExecuteProcess(string exeName, string arguments)

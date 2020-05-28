@@ -28,19 +28,14 @@ namespace Shellbent.Resolvers
 
 		public override ChangedDelegate Changed { get; set; }
 
-		public override bool ResolveBoolean(VsState state, string tag)
-		{
-			return tag == "vsr";
-		}
-
 		public override string Resolve(VsState state, string tag)
 		{
-			if (tag == "vsr-branch")
-				return vsrBranch;
-			else if (tag == "vsr-sha")
-				return vsrSHA;
-			else
-				return "";
+			switch (tag)
+			{
+				case "vsr-branch": return vsrBranch;
+				case "vsr-sha": return vsrSHA;
+				default: return string.Empty;
+			}
 		}
 
 		private void OnBeforeSolutionOpened(string solutionFilepath)
@@ -75,26 +70,14 @@ namespace Shellbent.Resolvers
 			}
 		}
 
-		public override bool SatisfiesDependency(Tuple<string, string> d)
+		protected override bool SatisfiesPredicateImpl(string tag, string value)
 		{
-			if (!Available)
-				return false;
-
-			if (d.Item1 == "vsr-branch")
+			switch (tag)
 			{
-				return GlobMatch(d.Item2, vsrBranch);
-			}
-			else if (d.Item1 == "vsr-sha")
-			{
-				return GlobMatch(d.Item2, vsrSHA);
-			}
-			else if (d.Item1 == "vsr")
-			{
-				return true;
-			}
-			else
-			{
-				return false;
+				case "vsr": return true;
+				case "vsr-branch": return GlobMatch(value, vsrBranch);
+				case "vsr-sha": return GlobMatch(value, vsrSHA);
+				default: return false;
 			}
 		}
 

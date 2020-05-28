@@ -16,17 +16,18 @@ namespace Shellbent.Resolvers
 		}
 
 		public SolutionResolver(Models.SolutionModel solutionModel)
-			: base(new [] { "solution", "solution-name", "solution-path", "item-name", "path" })
+			: base(new [] { "solution", "solution-name", "solution-path", "path" })
 		{
 			solutionModel.SolutionAfterOpen += OnAfterOpenSolution;
 			solutionModel.SolutionAfterClosed += OnAfterSolutionClosed;
 		}
 
-		public override bool Available => !string.IsNullOrEmpty(solutionName);
+		public override bool Available =>
+			!string.IsNullOrEmpty(solutionName) && !string.IsNullOrEmpty(solutionFilepath);
 
 		public override ChangedDelegate Changed { get; set; }
 
-		public override bool ResolveBoolean(VsState state, string tag)
+		protected override bool ResolvableImpl(VsState state, string tag)
 		{
 			return state.Solution != null;
 		}
@@ -45,24 +46,15 @@ namespace Shellbent.Resolvers
 				throw new InvalidOperationException();
 		}
 
-		public override bool SatisfiesDependency(Tuple<string, string> d)
+		protected override bool SatisfiesPredicateImpl(string tag, string value)
 		{
-			if (d.Item1 == "solution-name")
+			switch (tag)
 			{
-				bool result = !string.IsNullOrEmpty(solutionName) && new Regex(
-					Regex.Escape(d.Item2).Replace(@"\*", ".*").Replace(@"\?", "."),
-					RegexOptions.IgnoreCase | RegexOptions.Singleline).IsMatch(solutionName);
-
-				return result;
+				case "solution": return true;
+				case "solution-name": return GlobMatch(value, solutionName);
+				case "solution-path": return GlobMatch(value, solutionFilepath);
+				default: return false;
 			}
-			else if (d.Item1 == "solution-path")
-			{
-				return !string.IsNullOrEmpty(solutionFilepath) && new Regex(
-					Regex.Escape(d.Item2).Replace(@"\*", ".*").Replace(@"\?", "."),
-					RegexOptions.IgnoreCase | RegexOptions.Singleline).IsMatch(solutionFilepath);
-			}
-
-			return false;
 		}
 
 		private void OnAfterOpenSolution()

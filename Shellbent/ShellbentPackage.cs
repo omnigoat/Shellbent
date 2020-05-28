@@ -139,7 +139,7 @@ namespace Shellbent
 			};
 
 		private bool PredicateIsSatisfied(Tuple<string, string> predicate)
-			=> Resolvers.Any(r => r.SatisfiesDependency(predicate));
+			=> Resolvers.Any(r => r.SatisfiesPredicate(predicate.Item1, predicate.Item2));
 
 
 		//=========================================================

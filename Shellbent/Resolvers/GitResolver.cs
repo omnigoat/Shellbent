@@ -26,24 +26,16 @@ namespace Shellbent.Resolvers
 
 		public override ChangedDelegate Changed { get; set; }
 
-		public override bool SatisfiesDependency(Tuple<string, string> d)
+		protected override bool SatisfiesPredicateImpl(string tag, string value)
 		{
-			if (!Available)
-				return false;
-
-			switch (d.Item1)
+			switch (tag)
 			{
-				case "git-branch": lock (dataLock) return GlobMatch(d.Item2, gitBranch);
-				case "git-sha": lock (dataLock) return GlobMatch(d.Item2, gitSha);
+				case "git-branch": lock (dataLock) return GlobMatch(value, gitBranch);
+				case "git-sha": lock (dataLock) return GlobMatch(value, gitSha);
 				case "git": return Available;
 
 				default: return false;
 			}
-		}
-
-		public override bool ResolveBoolean(VsState state, string tag)
-		{
-			return tag == "git";
 		}
 
 		public override string Resolve(VsState state, string tag)
