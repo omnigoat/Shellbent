@@ -88,10 +88,11 @@ namespace Shellbent.Utilities
 
 		private static bool ParseQuestion(out string result, VsState state, string pattern, ref int i, string singleDollar)
 		{
-			var tag = new string(pattern
-				.Substring(i + 1)
-				.TakeWhile(x => x >= 'a' && x <= 'z' || x == '-')
-				.ToArray());
+			if (!ResolverUtils.ExtractTag(pattern, out string tag))
+			{
+				result = null;
+				return false;
+			}
 
 			i += 1 + tag.Length;
 

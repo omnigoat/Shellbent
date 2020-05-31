@@ -23,7 +23,7 @@ namespace Shellbent.Settings
 			m_Watcher.Changed += Watcher_Changed;
 			m_Watcher.Deleted += Watcher_Changed;
 			m_Watcher.Renamed += Watcher_Renamed;
-			Watcher_Changed(null, new FileSystemEventArgs(WatcherChangeTypes.Created, WatchingDirectory, filepath));
+			Watcher_Changed(null, new FileSystemEventArgs(WatcherChangeTypes.Created, WatchingDirectory, Defaults.ConfgFileName));
 
 			m_Watcher.EnableRaisingEvents = true;
 		}

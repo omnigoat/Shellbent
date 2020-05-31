@@ -80,7 +80,6 @@ namespace Shellbent
 		private void OnBeforeSolutionOpened(string solutionFilepath)
 		{
 			// reset the solution-file settings file
-			solutionsFileChangeProvider?.Dispose();
 			solutionsFileChangeProvider = new SolutionFileChangeProvider(solutionFilepath);
 
 			UpdateModels();
@@ -89,6 +88,7 @@ namespace Shellbent
 		private void OnAfterSolutionClosed()
 		{
 			solutionsFileChangeProvider?.Dispose();
+			solutionsFileChangeProvider = null;
 
 			UpdateModels();
 		}
