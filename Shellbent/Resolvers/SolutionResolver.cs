@@ -16,7 +16,7 @@ namespace Shellbent.Resolvers
 		}
 
 		public SolutionResolver(Models.SolutionModel solutionModel)
-			: base(new [] { "solution", "solution-name", "solution-path", "path" })
+			: base(new [] { "solution", "item-name", "solution-name", "solution-path", "path" })
 		{
 			solutionModel.SolutionAfterOpen += OnAfterOpenSolution;
 			solutionModel.SolutionAfterClosed += OnAfterSolutionClosed;
@@ -51,7 +51,8 @@ namespace Shellbent.Resolvers
 			switch (tag)
 			{
 				case "solution": return true;
-				case "solution-name": return GlobMatch(value, solutionName);
+				case "solution-name":
+				case "item-name": return GlobMatch(value, solutionName);
 				case "solution-path": return GlobMatch(value, solutionFilepath);
 				default: return false;
 			}

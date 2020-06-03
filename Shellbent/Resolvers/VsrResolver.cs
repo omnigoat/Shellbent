@@ -88,7 +88,7 @@ namespace Shellbent.Resolvers
 
 		private void ReadInfo()
 		{
-			string info = ResolverUtils.ExecuteProcess("vsr.exe", "info --nocolours");
+			string info = ResolverUtils.ExecuteProcess(vsrPath, "vsr.exe", "info --nocolours");
 
 			if (string.IsNullOrEmpty(info))
 				return;

@@ -165,10 +165,16 @@ namespace Shellbent.Resolvers
 
 		public static string ExecuteProcess(string exeName, string arguments)
 		{
+			return ExecuteProcess("", exeName, arguments);
+		}
+
+		public static string ExecuteProcess(string workingDir, string exeName, string arguments)
+		{
 			using (var process = new System.Diagnostics.Process
 			{
 				StartInfo = new System.Diagnostics.ProcessStartInfo()
 				{
+					WorkingDirectory = workingDir,
 					FileName = exeName,
 					Arguments = arguments,
 					UseShellExecute = false,

@@ -84,9 +84,9 @@ namespace Shellbent.Resolvers
 
 		private void ReadInfo()
 		{
-			gitBranch = ResolverUtils.ExecuteProcess("git.exe", "symbolic-ref -q --short HEAD").Trim();
+			gitBranch = ResolverUtils.ExecuteProcess(gitPath, "git.exe", "symbolic-ref -q --short HEAD").Trim();
 
-			var info = ResolverUtils.ExecuteProcess("git.exe", "show -s --format=\"%h|%cr\" HEAD")
+			var info = ResolverUtils.ExecuteProcess(gitPath, "git.exe", "show -s --format=\"%h|%cr\" HEAD")
 				.Split(new char[] { '|' })
 				.Select(x => x.Trim())
 				.ToList();
