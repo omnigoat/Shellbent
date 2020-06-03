@@ -12,6 +12,73 @@ using System.Windows.Input;
 
 namespace Shellbent.Resolvers
 {
+	static class StringExtensions
+	{
+		public static IEnumerable<string> SplitIntoLines(this string s)
+		{
+			return s.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+		}
+	
+		/// <summary>
+		/// Returns true if <paramref name="path"/> starts with the path <paramref name="baseDirPath"/>.
+		/// The comparison is case-insensitive, handles / and \ slashes as folder separators and
+		/// only matches if the base dir folder name is matched exactly ("c:\foobar\file.txt" is not a sub path of "c:\foo").
+		/// </summary>
+		public static bool IsSubPathOf(this string path, string baseDirPath)
+		{
+			string normalizedPath = Path.GetFullPath(path.Replace('/', '\\')
+				.WithEnding("\\"));
+
+			string normalizedBaseDirPath = Path.GetFullPath(baseDirPath.Replace('/', '\\')
+				.WithEnding("\\"));
+
+			return normalizedPath.StartsWith(normalizedBaseDirPath, StringComparison.OrdinalIgnoreCase);
+		}
+
+		/// <summary>
+		/// Returns <paramref name="str"/> with the minimal concatenation of <paramref name="ending"/> (starting from end) that
+		/// results in satisfying .EndsWith(ending).
+		/// </summary>
+		/// <example>"hel".WithEnding("llo") returns "hello", which is the result of "hel" + "lo".</example>
+		public static string WithEnding(this string str, string ending)
+		{
+			if (str == null)
+				return ending;
+
+			string result = str;
+
+			// Right() is 1-indexed, so include these cases
+			// * Append no characters
+			// * Append up to N characters, where N is ending length
+			for (int i = 0; i <= ending.Length; i++)
+			{
+				string tmp = result + ending.Right(i);
+				if (tmp.EndsWith(ending))
+					return tmp;
+			}
+
+			return result;
+		}
+
+		/// <summary>Gets the rightmost <paramref name="length" /> characters from a string.</summary>
+		/// <param name="value">The string to retrieve the substring from.</param>
+		/// <param name="length">The number of characters to retrieve.</param>
+		/// <returns>The substring.</returns>
+		public static string Right(this string value, int length)
+		{
+			if (value == null)
+			{
+				throw new ArgumentNullException("value");
+			}
+			if (length < 0)
+			{
+				throw new ArgumentOutOfRangeException("length", length, "Length is less than zero");
+			}
+
+			return (length < value.Length) ? value.Substring(value.Length - length) : value;
+		}
+	}
+
 	class P4Resolver : Resolver
 	{
 		public P4Resolver(Models.SolutionModel solutionModel)
@@ -28,7 +95,47 @@ namespace Shellbent.Resolvers
 			// we need to parse the output of "p4 clients" to find a matching directory
 			try
 			{
-				var user = ResolverUtils.ExecuteProcess("p4.exe", "user -o");
+				// attempt quick lookup with p4 info within the working directory
+				//
+				// this will be useful if someone has set a .p4config in their directory
+				var quickInfo = ResolverUtils.ExecuteProcess(solutionDir.FullName, "p4.exe", "-ztag -F \"%clientName%,%clientRoot%\" info");
+				if (!string.IsNullOrEmpty(quickInfo))
+				{
+					var things = quickInfo.Split(',');
+					if (things.Length == 2)
+					{
+						p4ClientName = things.First().Trim();
+						p4ClientRoot = things.Skip(1).First().Trim();
+
+						// check that this client-root is an ancestor our our cwd
+						if (StringExtensions.IsSubPathOf(solutionFilepath, p4ClientRoot))
+						{
+							// this client-name has been proved to match to our cwd
+							if (ReadP4ClientInfo(p4ClientRoot, p4ClientName))
+							{
+								return;
+							}
+						}
+					}
+				}
+
+				// extract host name
+				var info = ResolverUtils.ExecuteProcess(solutionDir.FullName, "p4.exe", "info");
+				if (string.IsNullOrEmpty(info))
+					return;
+
+				var host = info
+					.SplitIntoLines()
+					.Select(x => Regex.Match(x, @"^Client host: (.+)"))
+					.Where(r => r.Success)
+					.Select(r => r.Groups[1].Value.Trim())
+					.FirstOrDefault();
+
+				if (string.IsNullOrEmpty(host))
+					return;
+
+				// extract username
+				var user = ResolverUtils.ExecuteProcess(solutionDir.FullName, "p4.exe", "user -o");
 				if (user == null)
 					return;
 
@@ -42,32 +149,38 @@ namespace Shellbent.Resolvers
 				if (string.IsNullOrEmpty(username))
 					return;
 
-				var clients = ResolverUtils.ExecuteProcess("p4.exe", $"clients -u \"{username}\"");
+				var clients = ResolverUtils.ExecuteProcess(solutionDir.FullName, "p4.exe", $"clients -u \"{username}\"");
 				if (clients == null)
 					return;
 
 				// get mapping of directories -> client-names
-				var dirMapping = clients
-					.Split(new[] { '\n' })
+				var clientInfos = clients
+					.Split('\n')
 					.Select(x => Regex.Match(x, @"Client (.+?) .+ root (.+?) '"))
 					.Where(r => r.Success)
-					.Select(r => Tuple.Create(r.Groups[1].Value, PathAddBackslash(r.Groups[2].Value)))
-					.ToDictionary(x => x.Item2, x => x.Item1);
+					.Select(r => ResolverUtils.ExecuteProcess(solutionDir.FullName, "p4.exe", $"client -o {r.Groups[1].Value}"))
+					.ToArray();
+
+				var dirMapping = clientInfos
+					.Select(s => s.Split('\n'))
+					.Where(lines => lines.Any(line => Regex.IsMatch(line, $@"Host:\t{host}")))
+					.Select(lines => lines.Where(line => line.StartsWith("Client:") || line.StartsWith("Root:")))
+					.ToDictionary(lines => PathAddBackslash(lines.Skip(1).First().TrimPrefix("Root:").Trim().ToLower()), lines => lines.First().TrimPrefix("Client:").Trim());
 
 				// find if our solution-directory is inside the root directory of one of these clients
 				if (!(solutionDir.FindAncestor(
 					x => x.Parent,
-					x => dirMapping.Keys.Contains(PathAddBackslash(x.FullName))) is DirectoryInfo ancestor))
+					x => dirMapping.Keys.Contains(PathAddBackslash(x.FullName).ToLower())) is DirectoryInfo ancestor))
 					return;
 
-				p4Path = PathAddBackslash(ancestor.FullName);
+				p4ClientRoot = PathAddBackslash(ancestor.FullName.ToLower());
 
 				// resolve client-name
-				if (!dirMapping.TryGetValue(p4Path, out p4Client))
+				if (!dirMapping.TryGetValue(p4ClientRoot, out p4ClientName))
 					return;
 
 				// get Views of client-spec
-				var clientInfo = ResolverUtils.ExecuteProcess("p4.exe", string.Format("client -o {0}", p4Client));
+				var clientInfo = ResolverUtils.ExecuteProcess(solutionDir.FullName, "p4.exe", string.Format("client -o {0}", p4ClientName));
 				p4Views = clientInfo
 					.Split(new[] { '\n' })
 					.SkipWhile(x => !x.StartsWith("View:"))
@@ -82,10 +195,33 @@ namespace Shellbent.Resolvers
 			}
 		}
 
+		private bool ReadP4ClientInfo(string solutionDir, string clientName)
+		{
+			try
+			{
+				var clientInfo = ResolverUtils.ExecuteProcess(solutionDir, "p4.exe", $"-ztag client -o {clientName}");
+				p4Views = clientInfo
+					.SplitIntoLines()
+					.Where(x => x.StartsWith("... View"))
+					.Select(x => Regex.Match(x, @"... View[0-9]+ (.+)"))
+					.Where(r => r.Success)
+					.Select(r => r.Groups[1].Value)
+					.Select(ExtractFirstView)
+					.ToList();
+			}
+			catch (Exception e)
+			{
+				System.Diagnostics.Debug.WriteLine(e.Message);
+				return false;
+			}
+
+			return true;
+		}
+
 		private void OnAfterSolutionClosed()
 		{
-			p4Path = "";
-			p4Client = "";
+			p4ClientRoot = "";
+			p4ClientName = "";
 			p4Views = new List<string>();
 		}
 
@@ -147,7 +283,7 @@ namespace Shellbent.Resolvers
 		}
 
 
-		public override bool Available => !string.IsNullOrEmpty(p4Path);
+		public override bool Available => !string.IsNullOrEmpty(p4ClientRoot);
 
 		public override ChangedDelegate Changed { get; set; }
 
@@ -197,7 +333,7 @@ namespace Shellbent.Resolvers
 			}
 			else if (tag == "p4-client")
 			{
-				return p4Client;
+				return p4ClientName;
 			}
 			else
 			{
@@ -210,15 +346,15 @@ namespace Shellbent.Resolvers
 			switch (tag)
 			{
 				case "p4": return true;
-				case "p4-client": return GlobMatch(value, p4Client);
+				case "p4-client": return GlobMatch(value, p4ClientName);
 				case "p4-view": return p4Views.Any(v => GlobMatch(value, v));
 
 				default: return false;
 			}
 		}
 
-		private string p4Path;
-		private string p4Client;
+		private string p4ClientName;
+		private string p4ClientRoot;
 		private List<string> p4Views;
 	}
 }
