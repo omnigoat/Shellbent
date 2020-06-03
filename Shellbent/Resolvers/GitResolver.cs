@@ -8,6 +8,24 @@ using System.Linq;
 
 namespace Shellbent.Resolvers
 {
+	static class GitExtensions
+	{
+		public static string GetFullPath(string fileName)
+		{
+			if (File.Exists(fileName))
+				return Path.GetFullPath(fileName);
+
+			var values = Environment.GetEnvironmentVariable("PATH");
+			foreach (var path in values.Split(Path.PathSeparator))
+			{
+				var fullPath = Path.Combine(path, fileName);
+				if (File.Exists(fullPath))
+					return fullPath;
+			}
+			return null;
+		}
+	}
+
 	public class GitResolver : Resolver
 	{
 		public static GitResolver Create(Models.SolutionModel solutionModel)
@@ -18,11 +36,13 @@ namespace Shellbent.Resolvers
 		public GitResolver(Models.SolutionModel solutionModel)
 			: base(new[] { "git", "git-branch", "git-sha", "git-commit-time-relative" })
 		{
+			gitExePath = GitExtensions.GetFullPath("git.exe");
+
 			solutionModel.SolutionBeforeOpen += OnBeforeSolutionOpened;
 			solutionModel.SolutionAfterClosed += OnAfterSolutionClosed;
 		}
 
-		public override bool Available => gitPath != null;
+		public override bool Available => gitExePath != null && gitPath != null;
 
 		public override ChangedDelegate Changed { get; set; }
 
@@ -84,15 +104,15 @@ namespace Shellbent.Resolvers
 
 		private void ReadInfo()
 		{
-			gitBranch = ResolverUtils.ExecuteProcess(gitPath, "git.exe", "symbolic-ref -q --short HEAD").Trim();
-
-			var info = ResolverUtils.ExecuteProcess(gitPath, "git.exe", "show -s --format=\"%h|%cr\" HEAD")
-				.Split(new char[] { '|' })
-				.Select(x => x.Trim())
-				.ToList();
-
 			try
 			{
+				gitBranch = ResolverUtils.ExecuteProcess(gitPath, gitExePath, "symbolic-ref -q --short HEAD").Trim();
+
+				var info = ResolverUtils.ExecuteProcess(gitPath, gitExePath, "show -s --format=\"%h|%cr\" HEAD")
+					.Split(new char[] { '|' })
+					.Select(x => x.Trim())
+					.ToList();
+
 				gitSha = info[0];
 				gitCommitTimeRelative = info[1];
 			}
@@ -106,6 +126,8 @@ namespace Shellbent.Resolvers
 		private FileSystemWatcher fileWatcher;
 
 		private readonly object dataLock = new object();
+
+		private string gitExePath;
 
 		private string gitPath = null;
 		private string gitBranch = string.Empty;

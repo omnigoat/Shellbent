@@ -507,6 +507,10 @@ namespace Shellbent.Models
 					// reflow the measuring of the prime info-block back to default values so that if we 
 					// open a new solution it will correctly update to the bounds of the new solution's name
 					cachedTitleBarInfoGrid.ColumnDefinitions[1].Width = new GridLength(1, GridUnitType.Star);
+				}
+
+				if (cachedTitleBarInfoGrid != null)
+				{
 					cachedTitleBarInfoGrid.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
 				}
 			}
