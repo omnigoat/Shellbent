@@ -16,7 +16,7 @@ namespace Shellbent.Resolvers
 		}
 
 		public SolutionResolver(Models.SolutionModel solutionModel)
-			: base(new [] { "solution", "item-name", "solution-name", "solution-path", "path" })
+			: base(new [] { "solution", /*"item-name"*/, "solution-name", "solution-path", "path" })
 		{
 			solutionModel.SolutionAfterOpen += OnAfterOpenSolution;
 			solutionModel.SolutionAfterClosed += OnAfterSolutionClosed;
@@ -38,7 +38,7 @@ namespace Shellbent.Resolvers
 			{
 				return SplitFunction.Parse("path", Path.DirectorySeparatorChar, tag, new FileInfo(solutionFilepath).Directory.FullName);
 			}
-			else if ((tag == "solution-name" || tag == "item-name") && state.Solution?.FullName != null)
+			else if ((tag == "solution-name" /*|| tag == "item-name"*/) && state.Solution?.FullName != null)
 				return Path.GetFileNameWithoutExtension(state.Solution.FullName);
 			else if (tag == "solution-path")
 				return Path.GetFileName(Path.GetDirectoryName(state.Solution.FileName)) + "\\";
@@ -52,7 +52,7 @@ namespace Shellbent.Resolvers
 			{
 				case "solution": return true;
 				case "solution-name":
-				case "item-name": return GlobMatch(value, solutionName);
+				//case "item-name": return GlobMatch(value, solutionName);
 				case "solution-path": return GlobMatch(value, solutionFilepath);
 				default: return false;
 			}
