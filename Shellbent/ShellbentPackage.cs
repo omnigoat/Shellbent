@@ -60,7 +60,7 @@ namespace Shellbent
 			// call after resolvers get a chance
 			solutionModel.SolutionBeforeOpen += OnBeforeSolutionOpened;
 			solutionModel.SolutionAfterClosed += OnAfterSolutionClosed;
-
+			solutionModel.SolutionAfterOpen += OnAfterSolutionOpen;
 			foreach (var resolver in resolvers)
 			{
 				resolver.Changed += (Resolver r) => UpdateModels();
@@ -73,7 +73,6 @@ namespace Shellbent
 			}
 		}
 
-
 		//=========================================================
 		// event-handlers
 		//=========================================================
@@ -82,6 +81,12 @@ namespace Shellbent
 			// reset the solution-file settings file
 			solutionsFileChangeProvider = new SolutionFileChangeProvider(solutionFilepath);
 
+			UpdateModels();
+		}
+
+		private void OnAfterSolutionOpen()
+		{
+			// the info-blocks aren't necessarily loaded until solution-load is complete
 			UpdateModels();
 		}
 
