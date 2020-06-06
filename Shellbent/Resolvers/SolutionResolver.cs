@@ -43,7 +43,7 @@ namespace Shellbent.Resolvers
 			else if (tag == "solution-path")
 				return Path.GetFileName(Path.GetDirectoryName(state.Solution.FileName)) + "\\";
 			else
-				throw new InvalidOperationException();
+				return string.Empty;
 		}
 
 		protected override bool SatisfiesPredicateImpl(string tag, string value)

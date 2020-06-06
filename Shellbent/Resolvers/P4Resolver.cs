@@ -26,6 +26,9 @@ namespace Shellbent.Resolvers
 		/// </summary>
 		public static bool IsSubPathOf(this string path, string baseDirPath)
 		{
+			if (baseDirPath.Length == 0)
+				return false;
+
 			string normalizedPath = Path.GetFullPath(path.Replace('/', '\\')
 				.WithEnding("\\"));
 
@@ -88,6 +91,30 @@ namespace Shellbent.Resolvers
 			solutionModel.SolutionAfterClosed += OnAfterSolutionClosed;
 		}
 
+		private bool ReadP4InfoQuick(string solutionPath)
+		{
+			var quickInfo = ResolverUtils.ExecuteProcess(solutionPath, "p4.exe", "-ztag -F \"%clientName%,%clientRoot%\" info");
+			if (string.IsNullOrEmpty(quickInfo))
+				return false;
+			
+			var things = quickInfo.Split(',');
+			if (things.Length != 2)
+				return false;
+
+			p4ClientName = things.First().Trim();
+			p4ClientRoot = things.Skip(1).First().Trim();
+
+			// check that this client-root is an ancestor our our cwd
+			if (p4ClientName == "*unknown*" || !StringExtensions.IsSubPathOf(solutionPath, p4ClientRoot))
+				return false;
+
+			// this client-name has been proved to match to our cwd
+			if (!ReadP4ClientInfo(p4ClientRoot, p4ClientName))
+				return false;
+
+			return true;
+		}
+
 		private void OnBeforeSolutionOpened(string solutionFilepath)
 		{
 			var solutionDir = new FileInfo(solutionFilepath).Directory;
@@ -95,29 +122,10 @@ namespace Shellbent.Resolvers
 			// we need to parse the output of "p4 clients" to find a matching directory
 			try
 			{
-				// attempt quick lookup with p4 info within the working directory
-				//
+				// attempt quick lookup with p4 info within the working directory.
 				// this will be useful if someone has set a .p4config in their directory
-				var quickInfo = ResolverUtils.ExecuteProcess(solutionDir.FullName, "p4.exe", "-ztag -F \"%clientName%,%clientRoot%\" info");
-				if (!string.IsNullOrEmpty(quickInfo))
-				{
-					var things = quickInfo.Split(',');
-					if (things.Length == 2)
-					{
-						p4ClientName = things.First().Trim();
-						p4ClientRoot = things.Skip(1).First().Trim();
-
-						// check that this client-root is an ancestor our our cwd
-						if (StringExtensions.IsSubPathOf(solutionFilepath, p4ClientRoot))
-						{
-							// this client-name has been proved to match to our cwd
-							if (ReadP4ClientInfo(p4ClientRoot, p4ClientName))
-							{
-								return;
-							}
-						}
-					}
-				}
+				if (ReadP4InfoQuick(solutionDir.FullName))
+					return;
 
 				// extract host name
 				var info = ResolverUtils.ExecuteProcess(solutionDir.FullName, "p4.exe", "info");
@@ -180,14 +188,7 @@ namespace Shellbent.Resolvers
 					return;
 
 				// get Views of client-spec
-				var clientInfo = ResolverUtils.ExecuteProcess(solutionDir.FullName, "p4.exe", string.Format("client -o {0}", p4ClientName));
-				p4Views = clientInfo
-					.Split(new[] { '\n' })
-					.SkipWhile(x => !x.StartsWith("View:"))
-					.Skip(1)
-					.TakeWhile(x => x.StartsWith("\t"))
-					.Select(ExtractFirstView)
-					.ToList();
+				ReadP4ClientInfo(solutionDir.FullName, p4ClientName);
 			}
 			catch (Exception e)
 			{

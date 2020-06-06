@@ -42,11 +42,18 @@ namespace Shellbent.Utilities
 			if (pattern == null)
 				return string.Empty;
 
-			int i = 0;
-			if (ParseImpl(out string transformed, state, pattern, ref i, null))
-				return transformed;
-			else
-				return string.Empty;
+			try
+			{
+				int i = 0;
+				if (ParseImpl(out string transformed, state, pattern, ref i, null))
+					return transformed;
+			}
+			catch (Exception e)
+			{
+				System.Console.WriteLine("Exception: " + e.Message);
+			}
+
+			return string.Empty;
 		}
 
 		private static bool ParseImpl(out string transformed, VsState state, string pattern, ref int i, string singleDollar)
@@ -88,7 +95,7 @@ namespace Shellbent.Utilities
 
 		private static bool ParseQuestion(out string result, VsState state, string pattern, ref int i, string singleDollar)
 		{
-			if (!ResolverUtils.ExtractTag(pattern, out string tag))
+			if (!ResolverUtils.ExtractTag(pattern.Substring(i), out string tag))
 			{
 				result = null;
 				return false;

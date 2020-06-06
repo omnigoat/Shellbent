@@ -133,7 +133,7 @@ namespace Shellbent.Resolvers
 		public static bool ExtractTag(string tag, out string result)
 		{
 			result = null;
-			var m = Regex.Match(tag, @"[a-z][a-z0-9-]*");
+			var m = Regex.Match(tag, @"[a-z0-9]+(\-[a-z0-9]+)*");
 			if (!m.Success)
 				return false;
 
