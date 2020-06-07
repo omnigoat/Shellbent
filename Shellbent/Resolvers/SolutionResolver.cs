@@ -16,7 +16,7 @@ namespace Shellbent.Resolvers
 		}
 
 		public SolutionResolver(Models.SolutionModel solutionModel)
-			: base(new [] { "solution", /*"item-name"*/, "solution-name", "solution-path", "path" })
+			: base(new [] { "solution", /*"item-name",*/ "solution-name", "solution-path", "path" })
 		{
 			solutionModel.SolutionAfterOpen += OnAfterOpenSolution;
 			solutionModel.SolutionAfterClosed += OnAfterSolutionClosed;
@@ -34,16 +34,15 @@ namespace Shellbent.Resolvers
 
 		public override string Resolve(VsState state, string tag)
 		{
-			if (tag.StartsWith("path"))
+			ResolverUtils.ExtractTag(tag, out string t);
+
+			switch (t)
 			{
-				return SplitFunction.Parse("path", Path.DirectorySeparatorChar, tag, new FileInfo(solutionFilepath).Directory.FullName);
+				case "solution": return "loaded";
+				case "solution-name": return solutionName;
+				case "solution-path": return SplitFunction.Parse("solution-path", Path.DirectorySeparatorChar, tag, solutionDirpath);
+				default: return string.Empty;
 			}
-			else if ((tag == "solution-name" /*|| tag == "item-name"*/) && state.Solution?.FullName != null)
-				return Path.GetFileNameWithoutExtension(state.Solution.FullName);
-			else if (tag == "solution-path")
-				return Path.GetFileName(Path.GetDirectoryName(state.Solution.FileName)) + "\\";
-			else
-				return string.Empty;
 		}
 
 		protected override bool SatisfiesPredicateImpl(string tag, string value)
@@ -67,6 +66,7 @@ namespace Shellbent.Resolvers
 
 			solutionName = the_solutionName as string;
 			solutionFilepath = the_solutionFilepath as string;
+			solutionDirpath = new FileInfo(solutionFilepath).Directory.FullName;
 		}
 
 		private void OnAfterSolutionClosed()
@@ -77,5 +77,6 @@ namespace Shellbent.Resolvers
 
 		private string solutionName;
 		private string solutionFilepath;
+		private string solutionDirpath;
 	}
 }

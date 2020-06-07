@@ -22,18 +22,25 @@ namespace Shellbent.Resolvers
 	{
 		public static string Parse(string functionName, char splitDelim, string tag, string data)
 		{
-			var m = Regex.Match(tag, $"{functionName}\\(([0-9]+), ([0-9]+)\\)");
+			var m = Regex.Match(tag, $"{functionName}(\\(([0-9]+), ([0-9]+)\\))?");
 			if (m.Success)
 			{
-				var arg1 = int.Parse(m.Groups[1].Value);
-				var arg2 = int.Parse(m.Groups[2].Value);
+				if (m.Groups[1].Success)
+				{
+					var arg1 = int.Parse(m.Groups[2].Value);
+					var arg2 = int.Parse(m.Groups[3].Value);
 
-				return data.Split(splitDelim)
-					.Reverse()
-					.Skip(arg1)
-					.Take(arg2)
-					.Reverse()
-					.Aggregate((a, b) => a + splitDelim + b);
+					return data.Split(splitDelim)
+						.Reverse()
+						.Skip(arg1)
+						.Take(arg2)
+						.Reverse()
+						.Aggregate((a, b) => a + splitDelim + b);
+				}
+				else
+				{
+					return data;
+				}
 			}
 
 			return "";

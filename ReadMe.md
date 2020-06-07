@@ -121,11 +121,16 @@ Finally, a Directive contains the pattern which changes the Visual Studio title 
 
  * `ide-name` - "Microsoft Visual Studio"
  * `ide-mode` - "(Debugging)", "(Running)", or ""
- * `item-name` - The name of the solution, or if no solution present, the document.
- * `path` - This is **special**. Left as just `$path`, it's the full path. As `$path(0, 2)`,
-            will act as a function, and return x from the leaf directory (x=0 here), for n 
-            (n=2 here) segments. So `$path(0, 2)` for the path `D:\hooray\best\things\mysolution.sln`
-            returns `best\things`. `$path(1, 1)` would return `best`.
+
+**Solution Tags**
+ * `solution-name` - The name of the solution
+ * `solution-path(`_optional_args_`)` - A psuedo-function. Left as just `$solution-path`, it's the full solution path. As `$solution-path(0, 2)`, it 
+will act as a function, and return n (here n=2) directories starting from the specified directory, where x (here x=0) specifies the leaf directory, 1 specifies the parent directory of the leaf, etc.\
+\
+For example, given path `D:\hooray\best\things\mysolution.sln`\
+\
+`$solution-path(0, 2)`  would return `best\things`\
+`$solution-path(1, 1)` would return `best`
 
 **git Tags**
  * `git-branch` - The name of the currently active git branch
@@ -143,19 +148,20 @@ Tags are enabled by prefixing with `$`, or `?`. Enclosing scopes are defined wit
 # examples
 
 ``` yaml
-# here, this pattern group is enabled if we're in a git repository. we always prefix with
-# the git branch, then the item-name (provided by Visual Studio), then, *if* the IDE Mode
-# is available, we provide a space followed by the ide-mode. Then the IDE name, followed
-# by the SHA of the current git commit.
+# here, this pattern group is enabled if we're in a git repository, and we have a
+# solution opened.  we always prefix with the git branch, then the solution-name,
+# then, *if* the IDE Mode is available, we provide a space followed by the ide-mode.
+# Then the IDE name, followed by the SHA of the current git commit.
 #
 # lets break down '?ide-mode{ $}' 
 #
-# we check to see if ide-mode is available (it's not when you're neither debugging nor running).
-# if it *is* available, we bring in everything inside the braces, which is a space followed by
-# the tag '$', which is known as ide-mode (because that's the tag that kicked this scope off).
+# we check to see if ide-mode is available (it is not when you're neither debugging nor running).
+# if it *is* available, everything inside the braces is included, which is a space followed by
+# the tag '$'. A single dollar-sign refers to the tag that initiated the enclsoing scope - in
+# this case that tag is "ide-mode".
 
-pattern-group[git]:
- - solution-opened: $git-branch - $item-name?ide-mode{ $} - $ide-name [$git-sha]
+pattern-group[git, solution]:
+ - solution-opened: $git-branch - $solution-name?ide-mode{ $} - $ide-name [$git-sha]
 ```
 
 A versionr setup
