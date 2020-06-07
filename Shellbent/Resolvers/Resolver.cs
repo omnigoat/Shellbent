@@ -18,65 +18,6 @@ namespace Shellbent.Resolvers
 		public Solution Solution;
 	}
 
-	public static class SplitFunction
-	{
-		public static string Parse(string functionName, char splitDelim, string tag, string data)
-		{
-			var m = Regex.Match(tag, $"{functionName}(\\(([0-9]+), ([0-9]+)\\))?");
-			if (m.Success)
-			{
-				if (m.Groups[1].Success)
-				{
-					var arg1 = int.Parse(m.Groups[2].Value);
-					var arg2 = int.Parse(m.Groups[3].Value);
-
-					return data.Split(splitDelim)
-						.Reverse()
-						.Skip(arg1)
-						.Take(arg2)
-						.Reverse()
-						.Aggregate((a, b) => a + splitDelim + b);
-				}
-				else
-				{
-					return data;
-				}
-			}
-
-			return "";
-		}
-
-
-		public static R ApplyFunction<R>(string input, string functionName, Func<List<string>, R> func)
-		{
-			try
-			{
-				if (input.StartsWith(functionName))
-					input = input.TrimPrefix(functionName);
-
-				var m = Regex.Match(input, @"\(\s*([a-z0-9-/*.]+)(\s*,\s*([a-z0-9-/*.]+))*\s*\)");
-				if (m.Success)
-				{
-					List<string> r = new List<string>
-					{
-						m.Groups[1].Value
-					};
-
-					r.AddRange(m.Groups[3].Captures
-						.OfType<Capture>()
-						.Select(x => x.Value));
-
-					return func(r);
-				}
-			}
-			finally
-			{
-			}
-
-			return default;
-		}
-	}
-
 	public abstract class Resolver
 	{
 		protected Resolver(IEnumerable<string> tags)
@@ -137,6 +78,7 @@ namespace Shellbent.Resolvers
 
 	internal static class ResolverUtils
 	{
+		// ExtractTag
 		public static bool ExtractTag(string tag, out string result)
 		{
 			result = null;
@@ -146,6 +88,66 @@ namespace Shellbent.Resolvers
 
 			result = m.Groups[0].Value;
 			return true;
+		}
+
+		// solution-path, svn-path, etc
+		public static string PathFunction(string functionName, char splitDelim, string tag, string data)
+		{
+			if (string.IsNullOrEmpty(data))
+				return string.Empty;
+
+			return ApplyFunction(tag, functionName, (args) =>
+			{
+				if (args.Count == 0)
+				{
+					return data;
+				}
+				else if (args.Count == 2)
+				{
+					var arg1 = int.Parse(args[0]);
+					var arg2 = int.Parse(args[1]);
+
+					return data.Split(splitDelim)
+						.Reverse()
+						.Skip(arg1)
+						.Take(arg2)
+						.Reverse()
+						.Aggregate((a, b) => a + splitDelim + b);
+				}
+				else
+				{
+					return tag;
+				}
+			});
+		}
+
+		// ApplyFunction
+		public static R ApplyFunction<R>(string input, string functionName, Func<List<string>, R> func)
+		{
+			try
+			{
+				var m = Regex.Match(input, $@"{functionName}(\(\s*([a-z0-9-/*.]+)(\s*,\s*([a-z0-9-/*.]+))*\s*\))?");
+				if (m.Success)
+				{
+					List<string> r = new List<string>();
+
+					if (m.Groups[1].Success)
+					{
+						r.Add(m.Groups[2].Value);
+
+						r.AddRange(m.Groups[4].Captures
+							.OfType<Capture>()
+							.Select(x => x.Value));
+					}
+
+					return func(r);
+				}
+			}
+			finally
+			{
+			}
+
+			return default;
 		}
 
 		// GetAllParentDirectories

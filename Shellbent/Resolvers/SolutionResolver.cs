@@ -40,7 +40,7 @@ namespace Shellbent.Resolvers
 			{
 				case "solution": return "loaded";
 				case "solution-name": return solutionName;
-				case "solution-path": return SplitFunction.Parse("solution-path", Path.DirectorySeparatorChar, tag, solutionDirpath);
+				case "solution-path": return ResolverUtils.PathFunction("solution-path", Path.DirectorySeparatorChar, tag, solutionDirpath);
 				default: return string.Empty;
 			}
 		}

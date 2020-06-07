@@ -292,27 +292,22 @@ namespace Shellbent.Resolvers
 		{
 			if (tag.StartsWith("p4-view"))
 			{
-				var view = SplitFunction.ApplyFunction(tag, "p4-view", (bits) =>
+				var view = ResolverUtils.ApplyFunction(tag, "p4-view", (bits) =>
 				{
-					int from = 0;
-					int count = 1;
-					string regex = "";
-
 					try
 					{
+						int from = 0;
+						int count = 1;
+
 						if (bits.Count > 0)
 							from = int.Parse(bits[0]);
 						if (bits.Count > 1)
 							count = int.Parse(bits[1]);
 
-						var filteredViews = string.IsNullOrEmpty(regex)
-							? p4Views
-							: p4Views.Where(x => Regex.IsMatch(x, regex));
-
 						// split view into pieces
-						var joined = filteredViews
+						var joined = p4Views
 							.Select(x => x.TrimPrefix("+").TrimPrefix("-").TrimPrefix("//").Split('/'))
-							.Where(x => x.Length >= (from + count))
+							//.Where(x => x.Length >= (from + count))
 							.Select(x => x.Skip(from).Take(count))
 							.Select(x => string.Join("/", x))
 							.FirstOrDefault();
