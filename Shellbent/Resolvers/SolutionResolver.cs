@@ -10,13 +10,8 @@ namespace Shellbent.Resolvers
 {
 	public class SolutionResolver : Resolver
 	{
-		internal static SolutionResolver Create(Models.SolutionModel solutionModel)
-		{
-			return new SolutionResolver(solutionModel);
-		}
-
 		public SolutionResolver(Models.SolutionModel solutionModel)
-			: base(new [] { "solution", /*"item-name",*/ "solution-name", "solution-path", "path" })
+			: base(new [] { "solution", "solution-name", "solution-path" })
 		{
 			solutionModel.SolutionAfterOpen += OnAfterOpenSolution;
 			solutionModel.SolutionAfterClosed += OnAfterSolutionClosed;
@@ -24,8 +19,6 @@ namespace Shellbent.Resolvers
 
 		public override bool Available =>
 			!string.IsNullOrEmpty(solutionName) && !string.IsNullOrEmpty(solutionFilepath);
-
-		public override ChangedDelegate Changed { get; set; }
 
 		protected override bool ResolvableImpl(VsState state, string tag)
 		{
@@ -40,7 +33,7 @@ namespace Shellbent.Resolvers
 			{
 				case "solution": return "loaded";
 				case "solution-name": return solutionName;
-				case "solution-path": return ResolverUtils.PathFunction("solution-path", Path.DirectorySeparatorChar, tag, solutionDirpath);
+				case "solution-path": return ResolverUtils.PathFunction("solution-path", Path.DirectorySeparatorChar, tag, Path.GetDirectoryName(solutionFilepath));
 				default: return string.Empty;
 			}
 		}
@@ -50,8 +43,7 @@ namespace Shellbent.Resolvers
 			switch (tag)
 			{
 				case "solution": return true;
-				case "solution-name":
-				//case "item-name": return GlobMatch(value, solutionName);
+				case "solution-name": return GlobMatch(value, solutionName);
 				case "solution-path": return GlobMatch(value, solutionFilepath);
 				default: return false;
 			}
@@ -66,7 +58,6 @@ namespace Shellbent.Resolvers
 
 			solutionName = the_solutionName as string;
 			solutionFilepath = the_solutionFilepath as string;
-			solutionDirpath = new FileInfo(solutionFilepath).Directory.FullName;
 		}
 
 		private void OnAfterSolutionClosed()
@@ -77,6 +68,5 @@ namespace Shellbent.Resolvers
 
 		private string solutionName;
 		private string solutionFilepath;
-		private string solutionDirpath;
 	}
 }

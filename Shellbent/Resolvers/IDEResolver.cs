@@ -15,8 +15,6 @@ namespace Shellbent.Resolvers
 
 		public override bool Available => true;
 
-		public override ChangedDelegate Changed { get; set; }
-
 		protected override bool ResolvableImpl(VsState state, string tag)
 		{
 			if (tag == "ide-mode")

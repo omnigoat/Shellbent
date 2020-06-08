@@ -87,33 +87,12 @@ namespace Shellbent.Resolvers
 		public P4Resolver(Models.SolutionModel solutionModel)
 			: base(new [] { "p4", "p4-client", "p4-view" })
 		{
+			p4ExePath = GetP4ExePath();
+
 			solutionModel.SolutionBeforeOpen += OnBeforeSolutionOpened;
 			solutionModel.SolutionAfterClosed += OnAfterSolutionClosed;
 		}
 
-		private bool ReadP4InfoQuick(string solutionPath)
-		{
-			var quickInfo = ResolverUtils.ExecuteProcess(solutionPath, "p4.exe", "-ztag -F \"%clientName%,%clientRoot%\" info");
-			if (string.IsNullOrEmpty(quickInfo))
-				return false;
-			
-			var things = quickInfo.Split(',');
-			if (things.Length != 2)
-				return false;
-
-			p4ClientName = things.First().Trim();
-			p4ClientRoot = things.Skip(1).First().Trim();
-
-			// check that this client-root is an ancestor our our cwd
-			if (p4ClientName == "*unknown*" || !StringExtensions.IsSubPathOf(solutionPath, p4ClientRoot))
-				return false;
-
-			// this client-name has been proved to match to our cwd
-			if (!ReadP4ClientInfo(p4ClientRoot, p4ClientName))
-				return false;
-
-			return true;
-		}
 
 		private void OnBeforeSolutionOpened(string solutionFilepath)
 		{
@@ -196,6 +175,36 @@ namespace Shellbent.Resolvers
 			}
 		}
 
+
+		//
+		// quickly reads p4 info. assumes someone has set up a .p4config file
+		// inside their repo
+		//
+		private bool ReadP4InfoQuick(string solutionPath)
+		{
+			var quickInfo = ResolverUtils.ExecuteProcess(solutionPath, "p4.exe", "-ztag -F \"%clientName%,%clientRoot%\" info");
+			if (string.IsNullOrEmpty(quickInfo))
+				return false;
+
+			var things = quickInfo.Split(',');
+			if (things.Length != 2)
+				return false;
+
+			p4ClientName = things.First().Trim();
+			p4ClientRoot = things.Skip(1).First().Trim();
+
+			// check that this client-root is an ancestor our our cwd
+			if (p4ClientName == "*unknown*" || !StringExtensions.IsSubPathOf(solutionPath, p4ClientRoot))
+				return false;
+
+			// this client-name has been proved to match to our cwd
+			if (!ReadP4ClientInfo(p4ClientRoot, p4ClientName))
+				return false;
+
+			return true;
+		}
+
+
 		private bool ReadP4ClientInfo(string solutionDir, string clientName)
 		{
 			try
@@ -206,8 +215,7 @@ namespace Shellbent.Resolvers
 					.Where(x => x.StartsWith("... View"))
 					.Select(x => Regex.Match(x, @"... View[0-9]+ (.+)"))
 					.Where(r => r.Success)
-					.Select(r => r.Groups[1].Value)
-					.Select(ExtractFirstView)
+					.Select(r => ExtractFirstView(r.Groups[1].Value))
 					.ToList();
 			}
 			catch (Exception e)
@@ -286,55 +294,54 @@ namespace Shellbent.Resolvers
 
 		public override bool Available => !string.IsNullOrEmpty(p4ClientRoot);
 
-		public override ChangedDelegate Changed { get; set; }
-
 		public override string Resolve(VsState state, string tag)
 		{
-			if (tag.StartsWith("p4-view"))
+			ResolverUtils.ExtractTag(tag, out string t);
+
+			switch (t)
 			{
-				var view = ResolverUtils.ApplyFunction(tag, "p4-view", (bits) =>
+				case "p4-view": return ResolveP4View(tag);
+				case "p4-client": return p4ClientName;
+				case "p4-root": return p4ClientRoot;
+				default: return string.Empty;
+			}
+		}
+
+		private string ResolveP4View(string tag)
+		{
+			var view = ResolverUtils.ApplyFunction(tag, "p4-view", (bits) =>
+			{
+				try
 				{
-					try
-					{
-						int from = 0;
-						int count = 1;
+					int from = 0;
+					int count = 1;
 
-						if (bits.Count > 0)
-							from = int.Parse(bits[0]);
-						if (bits.Count > 1)
-							count = int.Parse(bits[1]);
+					if (bits.Count > 0)
+						from = int.Parse(bits[0]);
+					if (bits.Count > 1)
+						count = int.Parse(bits[1]);
 
-						// split view into pieces
-						var joined = p4Views
-							.Select(x => x.TrimPrefix("+").TrimPrefix("-").TrimPrefix("//").Split('/'))
-							//.Where(x => x.Length >= (from + count))
-							.Select(x => x.Skip(from).Take(count))
-							.Select(x => string.Join("/", x))
-							.FirstOrDefault();
+					// split view into pieces
+					var joined = p4Views
+						.Select(x => x.TrimPrefix("+").TrimPrefix("-").TrimPrefix("//").Split('/'))
+						.Select(x => x.Skip(from).Take(count))
+						.Select(x => string.Join("/", x))
+						.FirstOrDefault();
 
-						return joined;
-					}
-					catch (Exception)
-					{
-					}
+					return joined;
+				}
+				catch (Exception)
+				{
+				}
 
-					return default;
-
-				});
-
-				if (string.IsNullOrEmpty(view))
-					return null;
-				else
-					return view;
-			}
-			else if (tag == "p4-client")
-			{
-				return p4ClientName;
-			}
-			else
-			{
 				return default;
-			}
+
+			});
+
+			if (string.IsNullOrEmpty(view))
+				return null;
+			else
+				return view;
 		}
 
 		protected override bool SatisfiesPredicateImpl(string tag, string value)
@@ -349,6 +356,21 @@ namespace Shellbent.Resolvers
 			}
 		}
 
+		private string GetP4ExePath()
+		{
+			// standard locations of p4 we'll append to our split-up PATH,
+			// just in case the user *has* p4, but not in the PATH
+			var standardLocations = new[] { "C:\\Program Files\\Perforce", "C:\\Program Files (x86)\\Perforce" };
+
+			// search global path for git.exe
+			return Environment.GetEnvironmentVariable("PATH")
+				.Split(Path.PathSeparator)
+				.Concat(standardLocations)
+				.Select(x => Path.Combine(x, "p4.exe"))
+				.FirstOrDefault(x => File.Exists(x));
+		}
+
+		private readonly string p4ExePath;
 		private string p4ClientName;
 		private string p4ClientRoot;
 		private List<string> p4Views;

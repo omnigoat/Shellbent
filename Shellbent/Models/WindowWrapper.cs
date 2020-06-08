@@ -12,6 +12,7 @@ using Microsoft.VisualStudio.PlatformUI;
 using System.Windows.Data;
 using Shellbent.Utilities;
 using System.Windows.Shapes;
+using stdole;
 
 namespace Shellbent.Models
 {
@@ -566,7 +567,7 @@ namespace Shellbent.Models
 					Padding = new Thickness(border.Padding.Left, border.Padding.Top, border.Padding.Right, border.Padding.Bottom),
 					DataContext = border.DataContext,
 					HorizontalAlignment = border.HorizontalAlignment,
-					
+
 					// just a little more separation than 1px
 					Margin = new Thickness(2, 0, 0, 0),
 
@@ -577,17 +578,6 @@ namespace Shellbent.Models
 						{
 							Text = data.Text,
 							Foreground = data.TextBrush,
-
-							FontFamily = text.FontFamily,
-							FontWeight = text.FontWeight,
-							FontSize = text.FontSize,
-							FontStyle = text.FontStyle,
-							FontStretch = text.FontStretch,
-							TextAlignment = text.TextAlignment,
-							TextEffects = text.TextEffects,
-							Padding = text.Padding,
-							BaselineOffset = text.BaselineOffset,
-							Width = Math.Floor(WindowUtils.MeasureString(text, data.Text).Width)
 						}
 					}
 				};
@@ -602,18 +592,27 @@ namespace Shellbent.Models
 					});
 				}
 
-				((r.Child as Border).Child as TextBlock).SetBinding(TextBlock.ForegroundProperty, new Binding()
+				if ((r.Child as Border).Child is TextBlock ntb)
 				{
-					Source = text,
-					Path = new PropertyPath("Foreground")
-				});
+					// always bind the foreground colour of our blocks to the prime block, as this
+					// will work if the user changes the theme. specified colours will be set as local
+					// values. those local values will be cleared if the user chooses no foreground
+					// colour, leaving this binding intact and non-overridden
+					ntb.SetBinding(TextBlock.ForegroundProperty, new Binding() { Source = text, Path = new PropertyPath("Foreground") });
+
+					// match the prime-info-block for COHESION
+					ntb.SetBinding(TextBlock.FontWeightProperty, new Binding() { Source = text, Path = new PropertyPath("FontWeight") });
+					ntb.SetBinding(TextBlock.FontSizeProperty, new Binding() { Source = text, Path = new PropertyPath("FontSize") });
+					ntb.SetBinding(TextBlock.FontStyleProperty, new Binding() { Source = text, Path = new PropertyPath("FontStyle") });
+					ntb.SetBinding(TextBlock.FontStretchProperty, new Binding() { Source = text, Path = new PropertyPath("FontStretch") });
+				}
 
 				r.SetValue(Grid.ColumnProperty, idx + 2);
 				return r;
 			}
 			catch (Exception e)
 			{
-				System.Console.WriteLine(e.Message);
+				Console.WriteLine(e.Message);
 			}
 
 			return null;
@@ -655,21 +654,6 @@ namespace Shellbent.Models
 
 	internal static class WindowUtils
 	{
-		public static Size MeasureString(TextBlock textBlock, string candidate)
-		{
-			var formattedText = new FormattedText(
-				candidate,
-				System.Globalization.CultureInfo.CurrentCulture,
-				FlowDirection.LeftToRight,
-				new Typeface(textBlock.FontFamily, textBlock.FontStyle, textBlock.FontWeight, textBlock.FontStretch),
-				textBlock.FontSize,
-				Brushes.Black,
-				new NumberSubstitution(),
-				1);
-
-			return new Size(formattedText.Width, formattedText.Height);
-		}
-
 		public static SolidColorBrush CalculateForegroundBrush(Color? color)
 		{
 			if (!color.HasValue)

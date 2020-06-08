@@ -12,11 +12,6 @@ namespace Shellbent.Resolvers
 {
 	class VsrResolver : Resolver
 	{
-		public static VsrResolver Create(Models.SolutionModel solutionModel)
-		{
-			return new VsrResolver(solutionModel);
-		}
-
 		public VsrResolver(Models.SolutionModel solutionModel)
 			: base(new[] { "vsr", "vsr-branch", "vsr-sha" })
 		{
@@ -25,8 +20,6 @@ namespace Shellbent.Resolvers
 		}
 
 		public override bool Available => vsrPath != null;
-
-		public override ChangedDelegate Changed { get; set; }
 
 		public override string Resolve(VsState state, string tag)
 		{
@@ -42,7 +35,7 @@ namespace Shellbent.Resolvers
 		{
 			var solutionDir = new FileInfo(solutionFilepath).Directory;
 
-			vsrPath = GetAllParentDirectories(solutionDir)
+			vsrPath = ResolverUtils.GetAllParentDirectories(solutionDir)
 				.SelectMany(x => x.GetDirectories())
 				.FirstOrDefault(x => x.Name == ".versionr")?.FullName;
 
@@ -93,7 +86,7 @@ namespace Shellbent.Resolvers
 			if (string.IsNullOrEmpty(info))
 				return;
 
-			var lines = info.Split('\n');
+			var lines = info.SplitIntoLines().ToArray();
 			bool changed = false;
 
 			// parse branch
@@ -122,24 +115,9 @@ namespace Shellbent.Resolvers
 			}
 		}
 
-		private static IEnumerable<DirectoryInfo> GetAllParentDirectories(DirectoryInfo directoryToScan)
-		{
-			Stack<DirectoryInfo> ret = new Stack<DirectoryInfo>();
-			GetAllParentDirectories(directoryToScan, ref ret);
-			return ret;
-		}
-
-		private static void GetAllParentDirectories(DirectoryInfo directoryToScan, ref Stack<DirectoryInfo> directories)
-		{
-			if (directoryToScan == null || directoryToScan.Name == directoryToScan.Root.Name)
-				return;
-
-			directories.Push(directoryToScan);
-			GetAllParentDirectories(directoryToScan.Parent, ref directories);
-		}
+		private FileSystemWatcher watcher;
 
 		private string vsrPath;
-		private FileSystemWatcher watcher;
 		private string vsrBranch;
 		private string vsrSHA;
 	}

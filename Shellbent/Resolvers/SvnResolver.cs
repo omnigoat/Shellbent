@@ -11,20 +11,6 @@ namespace Shellbent.Resolvers
 {
 	class SvnResolver : Resolver
 	{
-		public static SvnResolver Create(Models.SolutionModel solutionModel)
-		{
-			return new SvnResolver(solutionModel);
-		}
-
-		public static bool Required(out string outpath, string path)
-		{
-			outpath = GetAllParentDirectories(new DirectoryInfo(path))
-				.SelectMany(x => x.GetDirectories())
-				.FirstOrDefault(x => x.Name == ".svn")?.FullName;
-
-			return outpath != null;
-		}
-
 		public SvnResolver(Models.SolutionModel solutionModel)
 			: base(new[] { "svn", "svn-url" })
 		{
@@ -33,8 +19,6 @@ namespace Shellbent.Resolvers
 		}
 
 		public override bool Available => svnPath != null;
-
-		public override ChangedDelegate Changed { get; set; }
 
 		protected override bool SatisfiesPredicateImpl(string tag, string value)
 		{
@@ -48,17 +32,18 @@ namespace Shellbent.Resolvers
 
 		public override string Resolve(VsState state, string tag)
 		{
-			if (tag == "svn-url")
-				return svnUrl;
-			else
-				return "";
+			switch (tag)
+			{
+				case "svn-url": return svnUrl;
+				default: return string.Empty;
+			}
 		}
 
 		private void OnBeforeSolutionOpened(string solutionFilepath)
 		{
 			var solutionDir = new FileInfo(solutionFilepath).Directory;
 
-			svnPath = GetAllParentDirectories(solutionDir)
+			svnPath = ResolverUtils.GetAllParentDirectories(solutionDir)
 					.SelectMany(x => x.GetDirectories())
 					.FirstOrDefault(x => x.Name == ".svn")?.FullName;
 
@@ -86,42 +71,19 @@ namespace Shellbent.Resolvers
 		private void SvnFolderChanged(object sender, FileSystemEventArgs e)
 		{
 			ReadInfo();
+			Changed?.Invoke(this);
 		}
 
 		private void ReadInfo()
 		{
-			var p = new System.Diagnostics.Process()
-			{
-				StartInfo = new System.Diagnostics.ProcessStartInfo()
-				{
-					FileName = "svn.exe",
-					Arguments = "info",
-					UseShellExecute = false,
-					CreateNoWindow = true,
-					RedirectStandardOutput = true,
-					WorkingDirectory = new DirectoryInfo(svnPath)?.Parent?.FullName ?? svnPath
-				}
-			};
+			string svnInfo = ResolverUtils.ExecuteProcess(Path.GetDirectoryName(svnPath), "svn.exe", "info");
 
-			p.OutputDataReceived += SvnInfoReceived;
-			p.Start();
-			p.BeginOutputReadLine();
+			var newUrl =
+				svnInfo.SplitIntoLines()
+				.Where(x => x.StartsWith("URL: "))
+				.Select(x => x.Substring(5))
+				.FirstOrDefault();
 
-			p.WaitForExit();
-		}
-
-		private void SvnInfoReceived(object sender, System.Diagnostics.DataReceivedEventArgs e)
-		{
-			if (e.Data == null)
-				return;
-			
-			var lines = e.Data.Split(new char[] { '\n' });
-
-			var url_line = lines.Where(x => x.StartsWith("URL: ")).FirstOrDefault();
-			if (url_line == null)
-				return;
-				
-			var newUrl = url_line.Substring(5); // remove "URL: "
 			if (svnUrl != newUrl)
 			{
 				svnUrl = newUrl;
@@ -129,25 +91,9 @@ namespace Shellbent.Resolvers
 			}
 		}
 
-		private static IEnumerable<DirectoryInfo> GetAllParentDirectories(DirectoryInfo directoryToScan)
-		{
-			Stack<DirectoryInfo> ret = new Stack<DirectoryInfo>();
-			GetAllParentDirectories(directoryToScan, ref ret);
-			return ret;
-		}
-
-		private static void GetAllParentDirectories(DirectoryInfo directoryToScan, ref Stack<DirectoryInfo> directories)
-		{
-			if (directoryToScan == null || directoryToScan.Name == directoryToScan.Root.Name)
-				return;
-
-			directories.Push(directoryToScan);
-			GetAllParentDirectories(directoryToScan.Parent, ref directories);
-		}
-
-		private string svnPath = string.Empty;
+		private string svnPath;
 		private FileSystemWatcher fileWatcher;
-		private string svnUrl = "";
+		private string svnUrl;
 	}
 }
 

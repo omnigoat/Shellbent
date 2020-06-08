@@ -26,9 +26,8 @@ namespace Shellbent.Resolvers
 		}
 
 		public delegate void ChangedDelegate(Resolver resolver);
-		public abstract ChangedDelegate Changed { get; set; }
-		
-		
+		public ChangedDelegate Changed { get; set; }
+
 		// true if the resolver is in a state where it can resolve tags
 		public abstract bool Available { get; }
 
