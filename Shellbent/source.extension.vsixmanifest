@@ -1,14 +1,21 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
     <Metadata>
-        <Identity Id="Shellbent.684c38e6-49bd-4989-b4fb-7d7c9003b3aa" Version="1.4.4" Language="en-US" Publisher="Jonathan Runting" />
+        <Identity Id="Shellbent.684c38e6-49bd-4989-b4fb-7d7c9003b3aa" Version="1.5.0" Language="en-US" Publisher="Jonathan Runting" />
         <DisplayName>Shellbent</DisplayName>
         <Description xml:space="preserve">Customise the Title Bar based off the current state of your source control, the current solution, and more.</Description>
         <Icon>Resources\ShellbentPackage.ico</Icon>
     </Metadata>
     <Installation>
-        <InstallationTarget Id="Microsoft.VisualStudio.Pro" Version="[15.0, 17.0)" />
-        <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[15.0, 17.0)" />
+        <InstallationTarget Id="Microsoft.VisualStudio.Pro" Version="[17.0,)">
+            <ProductArchitecture>amd64</ProductArchitecture>
+        </InstallationTarget>
+        <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.0,)">
+            <ProductArchitecture>amd64</ProductArchitecture>
+        </InstallationTarget>
+        <InstallationTarget Version="[17.0,)" Id="Microsoft.VisualStudio.Enterprise">
+            <ProductArchitecture>amd64</ProductArchitecture>
+        </InstallationTarget>
     </Installation>
     <Dependencies>
         <Dependency Id="Microsoft.Framework.NDP" DisplayName="Microsoft .NET Framework" d:Source="Manual" Version="[4.5,)" />
