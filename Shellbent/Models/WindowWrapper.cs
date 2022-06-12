@@ -80,6 +80,7 @@ namespace Shellbent.Models
 		public string TitleBarText;
 		public SolidColorBrush TitleBarForegroundBrush;
 		public SolidColorBrush TitleBarBackgroundBrush;
+		public bool? SearchBoxVisible;
 
 		public List<TitleBarInfoBlockData> Infos;
 	}
@@ -99,7 +100,16 @@ namespace Shellbent.Models
 		{
 			try
 			{
-				if (IsMsvc2019(vsVersion))
+				if (IsMsvc2022(vsVersion))
+				{
+					if (WindowWrapper2022MainWindow.IsSuitable(x))
+						return new WindowWrapper2022MainWindow(x);
+					else if (WindowWrapper2019ToolWindow.IsSuitable(x))
+						return new WindowWrapper2019ToolWindow(x);
+					else if (WindowWrapper2019ToolWindowExpanded.IsSuitable(x))
+						return new WindowWrapper2019ToolWindowExpanded(x);
+				}
+				else if (IsMsvc2019(vsVersion))
 				{
 					if (WindowWrapper2019MainWindow.IsSuitable(x))
 						return new WindowWrapper2019MainWindow(x);
@@ -132,6 +142,7 @@ namespace Shellbent.Models
 
 		private static bool IsMsvc2017(string str) => str.StartsWith("15");
 		private static bool IsMsvc2019(string str) => str.StartsWith("16");
+		private static bool IsMsvc2022(string str) => str.StartsWith("17");
 	}
 
 
@@ -167,7 +178,7 @@ namespace Shellbent.Models
 			if (TitleBar != null)
 			{
 				// setting to null resets to vanilla msvc
-				TitleBarBackgroundProperty?.SetValue(TitleBar, data.TitleBarBackgroundBrush);
+				//TitleBarBackgroundProperty?.SetValue(TitleBar, data.TitleBarBackgroundBrush);
 
 				// tool-windows don't have a title-bar-text-block
 				if (TitleBarTextBlock != null)
@@ -455,6 +466,7 @@ namespace Shellbent.Models
 			// extend background colour to the menubar
 			TitleBarVsMenu?.SetValue(Panel.BackgroundProperty, data.TitleBarBackgroundBrush);
 
+
 			// if we have an override background-colour, then calculate a nice default
 			// background-colour for the blocks, and apply it to the prime block
 			if (PrimeTitleInfoBlock != null)
@@ -512,7 +524,8 @@ namespace Shellbent.Models
 
 				if (cachedTitleBarInfoGrid != null)
 				{
-					cachedTitleBarInfoGrid.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+					//cachedTitleBarInfoGrid.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+					cachedTitleBarInfoGrid.UpdateLayout();
 				}
 			}
 			
@@ -532,7 +545,7 @@ namespace Shellbent.Models
 		}
 
 		private UIElement cachedVsMenu;
-		private UIElement TitleBarVsMenu => cachedVsMenu ??
+		protected UIElement TitleBarVsMenu => cachedVsMenu ??
 			(cachedVsMenu = TitleBar
 				?.GetElement<ContentControl>("PART_MinimalMainMenuBar")
 				?.GetElement<ContentPresenter>()
@@ -648,7 +661,44 @@ namespace Shellbent.Models
 	}
 
 
+	internal class WindowWrapper2022MainWindow : WindowWrapper2019MainWindow
+	{
+		public WindowWrapper2022MainWindow(Window window) : base(window)
+		{
+		}
 
+		public override void UpdateTitleBar(TitleBarData data)
+		{
+			base.UpdateTitleBar(data);
+
+			if (!data.SearchBoxVisible.Value && searchBoxVisible)
+			{
+				SearchBoxGridParent.Children.Remove(SearchBoxGrid);
+				SearchBoxGridParent.UpdateLayout();
+				searchBoxVisible = false;
+			}
+			else if (data.SearchBoxVisible.Value && !searchBoxVisible)
+			{
+				SearchBoxGridParent.Children.Insert(1, SearchBoxGrid);
+				SearchBoxGridParent.UpdateLayout();
+				searchBoxVisible = true;
+			}
+		}
+
+		private bool searchBoxVisible = true;
+
+		private Grid cachedSearchBoxGridParent;
+		protected Grid SearchBoxGridParent =>
+			cachedSearchBoxGridParent ??
+			(cachedSearchBoxGridParent = TitleBar
+				?.GetElement<Grid>());
+
+		private Grid cachedSearchBoxGrid;
+		protected Grid SearchBoxGrid =>
+			cachedSearchBoxGrid ??
+			(cachedSearchBoxGrid = SearchBoxGridParent
+				?.GetChildren<Grid>().ElementAt(1));
+	}
 
 
 

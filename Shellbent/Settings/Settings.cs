@@ -71,7 +71,10 @@ namespace Shellbent.Settings
 		public Color? TitleBarBackground;
 		public SolidColorBrush TitleBarBackgroundBrush => TitleBarBackground.NullOr(c => new SolidColorBrush(c));
 
-		// vs2019
+		[YamlMember(Alias = "search-box")]
+		public bool SearchBox = true;
+
+		// vs2019+
 		[YamlMember(Alias = "blocks")]
 		public List<BlockSettings> Blocks;
 	}

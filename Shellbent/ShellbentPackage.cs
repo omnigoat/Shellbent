@@ -172,6 +172,7 @@ namespace Shellbent
 					acc.TitleBarText = acc.TitleBarText ?? Parsing.ParseFormatString(state, x.TitleBarCaption);
 					acc.TitleBarForegroundBrush = acc.TitleBarForegroundBrush ?? x.TitleBarForegroundBrush;
 					acc.TitleBarBackgroundBrush = acc.TitleBarBackgroundBrush ?? x.TitleBarBackgroundBrush;
+					acc.SearchBoxVisible = acc.SearchBoxVisible ?? x.SearchBox;
 
 					acc.Infos = acc.Infos ?? x.Blocks
 						?.Where(b => b.Predicates.All(PredicateIsSatisfied))
