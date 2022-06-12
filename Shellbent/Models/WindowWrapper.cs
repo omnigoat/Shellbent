@@ -177,15 +177,22 @@ namespace Shellbent.Models
 			// title-bar colors
 			if (TitleBar != null)
 			{
-				// setting to null resets to vanilla msvc
-				//TitleBarBackgroundProperty?.SetValue(TitleBar, data.TitleBarBackgroundBrush);
+				// clearing the value returns us to vanilla msvc
+				if (data.TitleBarBackgroundBrush == null)
+				{
+					TitleBar.ClearValue(Border.BackgroundProperty);
+				}
+				else
+				{
+					TitleBar.SetValue(Border.BackgroundProperty, data.TitleBarBackgroundBrush);
+				}
 
 				// tool-windows don't have a title-bar-text-block
 				if (TitleBarTextBlock != null)
 				{
 					var foregroundBrush = data.TitleBarForegroundBrush ?? WindowUtils.CalculateForegroundBrush(data.TitleBarBackgroundBrush?.Color);
 					if (foregroundBrush != null)
-						TitleBarForegroundProperty?.SetValue(TitleBarTextBlock, foregroundBrush);
+						TitleBarTextBlock.SetValue(TextBlock.ForegroundProperty, foregroundBrush);
 					else
 						TitleBarTextBlock.ClearValue(TextBlock.ForegroundProperty);
 				}
@@ -671,17 +678,17 @@ namespace Shellbent.Models
 		{
 			base.UpdateTitleBar(data);
 
-			if (!data.SearchBoxVisible.Value && searchBoxVisible)
-			{
-				SearchBoxGridParent.Children.Remove(SearchBoxGrid);
-				SearchBoxGridParent.UpdateLayout();
-				searchBoxVisible = false;
-			}
-			else if (data.SearchBoxVisible.Value && !searchBoxVisible)
+			if ((!data.SearchBoxVisible.HasValue || data.SearchBoxVisible.Value) && !searchBoxVisible)
 			{
 				SearchBoxGridParent.Children.Insert(1, SearchBoxGrid);
 				SearchBoxGridParent.UpdateLayout();
 				searchBoxVisible = true;
+			}
+			else if (data.SearchBoxVisible.HasValue && !data.SearchBoxVisible.Value && searchBoxVisible)
+			{
+				SearchBoxGridParent.Children.Remove(SearchBoxGrid);
+				SearchBoxGridParent.UpdateLayout();
+				searchBoxVisible = false;
 			}
 		}
 
