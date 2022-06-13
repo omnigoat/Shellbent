@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Windows.Threading;
 
 namespace Shellbent.Resolvers
 {
@@ -17,6 +18,10 @@ namespace Shellbent.Resolvers
 
 			solutionModel.SolutionBeforeOpen += OnBeforeSolutionOpened;
 			solutionModel.SolutionAfterClosed += OnAfterSolutionClosed;
+
+			// won't be started unless valid git context found
+			dispatcher.Interval = new TimeSpan(0, 1, 0);
+			dispatcher.Tick += OnTimerTick;
 		}
 
 		public override bool Available => gitExePath != null && gitPath != null;
@@ -64,17 +69,28 @@ namespace Shellbent.Resolvers
 				fileWatcher.EnableRaisingEvents = true;
 
 				ReadInfo();
+
+				dispatcher.Start();
 			}
+		}
+
+		private void OnTimerTick(object sender, EventArgs e)
+		{
+			ReadInfo();
+			Changed?.Invoke(this);
 		}
 
 		private void OnAfterSolutionClosed()
 		{
-			gitPath = null;
+			dispatcher.Stop();
+
 			if (fileWatcher != null)
 			{
 				fileWatcher.EnableRaisingEvents = false;
 				fileWatcher.Dispose();
 			}
+
+			gitPath = null;
 		}
 
 		private void OnGitFolderChanged(object sender, FileSystemEventArgs e)
@@ -116,6 +132,7 @@ namespace Shellbent.Resolvers
 		private readonly string gitExePath;
 
 		private FileSystemWatcher fileWatcher;
+		private DispatcherTimer dispatcher = new DispatcherTimer(DispatcherPriority.Background, System.Windows.Application.Current.Dispatcher);
 
 		private string gitPath;
 		private string gitBranch;
