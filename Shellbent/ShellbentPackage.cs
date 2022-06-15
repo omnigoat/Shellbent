@@ -139,6 +139,7 @@ namespace Shellbent
 			=> new Models.TitleBarInfoBlockData()
 			{
 				Text = Parsing.ParseFormatString(state, bs.Text),
+				AltText = Parsing.ParseFormatString(state, bs.AltText),
 				TextBrush = bs.Foreground.NullOr(c => new SolidColorBrush(c)),
 				BackgroundBrush = bs.Background.NullOr(c => new SolidColorBrush(c))
 			};

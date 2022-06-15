@@ -71,6 +71,7 @@ namespace Shellbent.Models
 	internal struct TitleBarInfoBlockData
 	{
 		public string Text;
+		public string AltText;
 		public SolidColorBrush TextBrush;
 		public SolidColorBrush BackgroundBrush;
 	}
@@ -587,6 +588,7 @@ namespace Shellbent.Models
 					Padding = new Thickness(border.Padding.Left, border.Padding.Top, border.Padding.Right, border.Padding.Bottom),
 					DataContext = border.DataContext,
 					HorizontalAlignment = border.HorizontalAlignment,
+					ToolTip = string.IsNullOrEmpty(data.AltText) ? null : data.AltText,
 
 					// just a little more separation than 1px
 					Margin = new Thickness(2, 0, 0, 0),

@@ -38,6 +38,9 @@ namespace Shellbent.Settings
 			[YamlMember(Alias = "text")]
 			public string Text;
 
+			[YamlMember(Alias = "alt-text")]
+			public string AltText;
+
 			[YamlMember(Alias = "foreground")]
 			public Color? Foreground;
 
