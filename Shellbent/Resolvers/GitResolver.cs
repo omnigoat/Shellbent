@@ -16,8 +16,11 @@ namespace Shellbent.Resolvers
 		public GitResolver(Models.SolutionModel solutionModel)
 			: base(new[] { "git", "git-branch", "git-sha", "git-commit-time-relative", "git-author",
 					"git-subject",
-					"git-remote-fetch", "git-fetch-ahead", "git-fetch-behind",
-					"git-remote-push", "git-push-ahead", "git-push-behind",
+					"git-has-single-remote",
+					"has-diverged",
+					"git-remote-name", "git-remote-ahead", "git-remote-behind",
+					"git-fetch-name", "git-fetch-ahead", "git-fetch-behind",
+					"git-push-name", "git-push-ahead", "git-push-behind",
 					"git-ahead-behind" })
 		{
 			gitExePath = GetGitExePath();

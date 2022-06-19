@@ -71,7 +71,7 @@ namespace Shellbent.Utilities
 
 		public static bool RegexMatches(string str, string pattern, out Match match)
 		{
-			match = Regex.Match(str, pattern);
+			match = Regex.Match(str, "\\G" + pattern);
 			return match.Success;
 		}
 	}

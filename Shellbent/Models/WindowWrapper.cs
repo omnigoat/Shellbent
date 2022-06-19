@@ -507,14 +507,15 @@ namespace Shellbent.Models
 						cachedTitleBarInfoGrid.ColumnDefinitions[1].Width = GridLength.Auto;
 					}
 				
-					// add new column-definitions to match
-					foreach (var i in data.Infos)
-						TitleBarInfoGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
 					// recalculate title-bar-infos
 					synthesizedInfoBlocks = data.Infos
+						.Where(x => !string.IsNullOrEmpty(x.Text))
 						.Select((x, idx) => new InfoBlock { Element = MakeInfoBlock(x, idx), TextColor = x.TextBrush?.Color })
 						.ToList();
+
+					// add new column-definitions to match
+					foreach (var i in synthesizedInfoBlocks)
+						TitleBarInfoGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
 					// reset all colours to what we are at the time
 					Window_ActivationChanged(null, null);

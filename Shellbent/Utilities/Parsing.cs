@@ -37,6 +37,20 @@ namespace Shellbent.Utilities
 				throw new InvalidOperationException(string.Format($"bad predicate: {x}"));
 		}
 
+		private struct ParsingState
+		{
+			public ParsingState(VsState state, string enclosingTag, bool consuming)
+			{
+				this.vsState = state;
+				this.enclosingTag = enclosingTag;
+				this.consuming = consuming;
+			}
+
+			public VsState vsState;
+			public string enclosingTag;
+			public bool consuming;
+		}
+
 		public static string ParseFormatString(VsState state, string pattern)
 		{
 			if (pattern == null)
@@ -44,7 +58,20 @@ namespace Shellbent.Utilities
 
 			try
 			{
-				if (ParseImpl(state, pattern, null, out string transformed, out int advance))
+				ParsingState parsingState;
+				parsingState.vsState = state;
+				parsingState.consuming = true;
+				parsingState.enclosingTag = null;
+
+				if (pattern.StartsWith("return"))
+				{
+					pattern = pattern.Substring("return".Length);
+					parsingState.consuming = false;
+				}
+				
+				pattern = pattern.Trim();
+
+				if (ParseImpl(parsingState, pattern, out string transformed, out int advance))
 					return transformed;
 			}
 			catch (Exception e)
@@ -55,16 +82,87 @@ namespace Shellbent.Utilities
 			return string.Empty;
 		}
 
-		private static bool ParseImpl(VsState state, string pattern, string singleDollar, out string transformed, out int advance)
+		private static bool ParseImpl(ParsingState state, string pattern, out string transformed, out int advance)
 		{
 			transformed = "";
 			advance = 0;
 
-			bool inBraceScopeForText = false;
+			bool inBraceScopeForText = state.consuming;
+			int braceScopes = 0;
+
+			// if we start with an open-brace, then let's only parse until we close
+			bool endAtScopeClose = pattern.First() == '{';
+
 
 			// begin pattern parsing
 			while (advance < pattern.Length)
 			{
+				if (pattern[advance] == '"' && !inBraceScopeForText)
+				{
+					inBraceScopeForText = true;
+					++advance;
+				}
+				else if (pattern[advance] == '"' && inBraceScopeForText)
+				{
+					inBraceScopeForText = false;
+					++advance;
+				}
+				// escape sequence
+				else if (inBraceScopeForText && pattern[advance] == '\\')
+				{
+					++advance;
+
+					if (advance == pattern.Length)
+					{
+						break;
+					}
+					else if (pattern[advance] == '"')
+					{
+						transformed += "\"";
+						++advance;
+					}
+					else if (pattern[advance] == 'n')
+					{
+						transformed += "\n";
+						++advance;
+					}
+					else
+					{
+						transformed += pattern[advance];
+						++advance;
+					}
+				}
+				else if (pattern[advance] == '{' && !inBraceScopeForText)
+				{
+					++advance;
+					++braceScopes;
+				}
+				else if (pattern[advance] == '}' && !inBraceScopeForText)
+				{
+					++advance;
+					if (--braceScopes == 0)
+						break;
+				}
+				// in string - we can expand
+				else if (inBraceScopeForText)
+				{
+					if (ParseIdentifier(state, pattern.Substring(advance), out string transformedExpr, out int innerAdvance))
+					{
+						advance += innerAdvance;
+						transformed += transformedExpr;
+					}
+					else
+					{
+						transformed += pattern[advance];
+						++advance;
+					}
+				}
+				else if (ParseIfStatement(state, pattern.Substring(advance), out string resultText, out int textAdvance))
+				{
+					advance += textAdvance;
+					transformed += resultText;
+				}
+#if false
 				// escape sequences
 				if (pattern[advance] == '\\')
 				{
@@ -74,37 +172,66 @@ namespace Shellbent.Utilities
 					transformed += pattern[advance];
 					++advance;
 				}
-				// predicates
-				else if (pattern[advance] == '?')
+				// keywords ('if')
+				else if (pattern[advance] == 'i' && ParseIfStatement(state, pattern.Substring(advance), out string resultExpression, out int resultAdvance))
 				{
-					if (ParseQuestion(state, pattern.Substring(advance), singleDollar, out string r, out int predicateAdvance))
-						transformed += r;
-					advance += predicateAdvance;
+					transformed += resultExpression;
+					advance += resultAdvance;
 				}
-				// dollars
-				else if (pattern[advance] == '$' && ParseDollar(out string r2, state, pattern, ref advance, singleDollar))
+				// identifiers
+				else if (pattern[advance] == '$' && ParseIdentifier(state, pattern.Substring(advance), out string r2, out int innerAdvance))
 				{
 					transformed += r2;
+					advance += innerAdvance;
 				}
-#if false
-				else if (pattern[i] == '{')
+				else if (pattern[advance] == '{')
 				{
-					inBraceScopeForText = true;
-					
-					if (++i == pattern.Length)
-						break;
-					
-					if (pattern[i] == '{')
+					// peek for brace escape
+					if (++advance == pattern.Length)
 					{
-						transformed += '{';
+						break;
+					}
+					else if (pattern[advance] == '{')
+					{
+						if (inBraceScopeForText)
+						{
+							transformed += '{';
+							++advance;
+						}
+					}
+					else
+					{
+						inBraceScopeForText = true;
+					}
+				}
+				else if (pattern[advance] == '}')
+				{
+					// peek for brace escape
+					if (++advance == pattern.Length)
+					{
+						break;
+					}
+					else if (pattern[advance] == '}')
+					{
+						if (inBraceScopeForText)
+						{
+							transformed += '}';
+							++advance;
+						}
+					}
+					else
+					{
 						inBraceScopeForText = false;
 					}
-					
 				}
-#endif
 				else if (inBraceScopeForText)
 				{
 					transformed += pattern[advance];
+					++advance;
+				}
+#endif
+				else
+				{
 					++advance;
 				}
 			}
@@ -114,101 +241,164 @@ namespace Shellbent.Utilities
 
 
 
-		// takes an expression like ?git-ahead{...}
-		private static bool ParseQuestion(VsState state, string pattern, string singleDollar, out string result, out int outAdvance)
+
+		private static void ConsumeWhitespace(ref string expr, ref int advance)
 		{
-			if (!ResolverUtils.ExtractTag(pattern, out string tag))
+			while (expr.First() == ' ' || expr.First() == '\t' || expr.First() == '\f' || expr.First() == '\n' || expr.First() == '\r')
 			{
-				outAdvance = 0;
-				result = null;
+				++advance;
+				expr = expr.Substring(1);
+			}
+		}
+
+		private static bool ParseIfStatement(ParsingState state, string expr, out string result, out int resultAdvance)
+		{
+			result = "";
+			resultAdvance = 0;
+
+			if (!expr.StartsWith("if"))
 				return false;
-			}
-
-			outAdvance = 1 + tag.Length;
-
-			var transformed_tag = state.Resolvers
-				.FirstOrDefault(x => x.Resolvable(state, tag))
-				?.Resolve(state, tag);
-
-			// look for braced group {....}, and skip if question was bad
-			if (outAdvance != pattern.Length && pattern[outAdvance] == '{')
-			{
-				if (string.IsNullOrEmpty(transformed_tag))
-				{
-					FindMatchingBracesScope(pattern.Substring(outAdvance), out string _, out int advance);
-					outAdvance += advance;
-
-					result = null;
-					return false;
-				}
-				else
-				{
-					bool validInnerExpr = FindMatchingBracesScope(pattern.Substring(outAdvance), out string innerExpr, out int advance);
-					outAdvance += advance;
-
-					if (!validInnerExpr || string.IsNullOrEmpty(transformed_tag))
-					{
-						result = null;
-						return false;
-					}
-					else
-					{
-						ParseImpl(state, innerExpr, transformed_tag, out result, out int _);
-					}
-				}
-			}
-			// no braced group, this predicate is wholly about substittion at the point of the tag
 			else
 			{
-				result = transformed_tag;
+				expr = expr.Substring(2);
+				resultAdvance += 2;
+			}
+
+			// skip whitespace between 'if' and opening bracket
+			ConsumeWhitespace(ref expr, ref resultAdvance);
+
+			// opening brace
+			if (expr.First() != '(')
+			{
 				return false;
+			}
+			else
+			{
+				++resultAdvance;
+				expr = expr.Substring(1);
+			}
+
+			ConsumeWhitespace(ref expr, ref resultAdvance);
+
+			// predicate is currently only allowed to be an identifier
+			if (!ParseIdentifier(state, expr, out string identifier, out int identifierAdvance))
+				return false;
+			else
+				expr = expr.Substring(identifierAdvance);
+
+			resultAdvance += identifierAdvance;
+
+			ConsumeWhitespace(ref expr, ref resultAdvance);
+
+			if (expr.First() != ')')
+			{
+				return false;
+			}
+			else
+			{
+				++resultAdvance;
+				expr = expr.Substring(1);
+			}
+
+			// if we failed our predicate, we need to skip past the body
+			if (string.IsNullOrEmpty(identifier))
+			{
+				FindMatchingBracesScope(expr, out int ifBodyAdvance);
+				resultAdvance += ifBodyAdvance;
+
+				// if there's an else-clause, parse it
+				expr = expr.Substring(ifBodyAdvance);
+				ConsumeWhitespace(ref expr, ref resultAdvance);
+
+				if (expr.StartsWith("else"))
+				{
+					resultAdvance += 4;
+					expr = expr.Substring(4);
+
+					ConsumeWhitespace(ref expr, ref resultAdvance);
+
+					ParsingState substate = new ParsingState(state.vsState, state.enclosingTag, false);
+					if (!ParseImpl(substate, expr, out string transformed, out int bodyAdvance))
+						return false;
+
+					result += transformed;
+					resultAdvance += bodyAdvance;
+				}
+
+				return true;
+			}
+			else
+			{
+				ConsumeWhitespace(ref expr, ref resultAdvance);
+
+				// parse the true body
+				{
+					ParsingState substate = new ParsingState(state.vsState, state.enclosingTag, false);
+					if (!ParseImpl(substate, expr, out string transformed, out int bodyAdvance))
+						return false;
+
+					result += transformed;
+					resultAdvance += bodyAdvance;
+					expr = expr.Substring(bodyAdvance);
+				}
+
+				ConsumeWhitespace(ref expr, ref resultAdvance);
+
+				// skip any else clause
+				if (expr.StartsWith("else"))
+				{
+					resultAdvance += 4;
+					expr = expr.Substring(4);
+
+					ConsumeWhitespace(ref expr, ref resultAdvance);
+
+					FindMatchingBracesScope(expr, out int ifBodyAdvance);
+					resultAdvance += ifBodyAdvance;
+				}
 			}
 
 			return true;
 		}
 
-		private static bool FindMatchingBracesScope(string pattern, out string innerExpr, out int advance)
+		
+
+
+		private static bool FindMatchingBracesScope(string pattern, out int advance)
 		{
 			advance = 0;
-
 			int scopes = 0;
+			bool inString = false;
+
 			for (; advance != pattern.Length; ++advance)
 			{
 				if (advance == pattern.Length)
 				{
-					innerExpr = "";
 					return false;
 				}
-
-				if (pattern[advance] == '{')
+				else if (pattern[advance] == '\\' && inString)
 				{
-					// only increase the scope when it's not "{{", which is the escaped brace
 					if (advance + 1 == pattern.Length)
-						continue;
-					else if (pattern[advance + 1] != '{')
-						++scopes;
-					else
+						return false;
+					else if (pattern[advance + 1] == '"')
 						++advance;
 				}
-				else if (pattern[advance] == '}')
+				else if (pattern[advance] == '"')
 				{
-					if (advance + 1 == pattern.Length)
-					{
-						continue;
-					}
-					else if (pattern[advance + 1] != '}')
-					{
-						if (--scopes == 0)
-							break;
-					}
-					else
+					inString = !inString;
+				}
+				else if (pattern[advance] == '{' && !inString)
+				{
+					++scopes;
+				}
+				else if (pattern[advance] == '}' && !inString)
+				{
+					if (--scopes == 0)
 					{
 						++advance;
+						break;
 					}
 				}
 			}
-
-			innerExpr = pattern.Substring(1, advance - 2);
 
 			return true;
 		}
@@ -221,28 +411,35 @@ namespace Shellbent.Utilities
 		//
 		// the identifier may be a function-call, like "$path(0, 2)"
 		//
-		private static bool ParseDollar(out string result, VsState state, string pattern, ref int i, string singleDollar)
+		private static bool ParseIdentifier(ParsingState state, string pattern, out string result, out int advance)
 		{
-			++i;
+			result = "";
 
-			// peek for brace vs non-brace
-			//
-			// find EOF or whitespace or number
-			if (i == pattern.Length)
+			if (pattern.First() != '$')
 			{
-				result = singleDollar ?? "";
+				advance = 0;
+				return false;
 			}
-			if (char.IsWhiteSpace(pattern[i]) || char.IsNumber(pattern[i]))
+			else
 			{
-				result = singleDollar ?? "";
-				return true;
+				advance = 1;
 			}
-			// find brace
-			else if (pattern[i] == '{')
+
+			if (advance == pattern.Length)
 			{
-				if (FindMatchingBracesScope(pattern.Substring(i), out string innerExpr, out int advance))
+				result = state.enclosingTag ?? "";
+			}
+			else if (char.IsWhiteSpace(pattern[advance]) || char.IsNumber(pattern[advance]))
+			{
+				result = state.enclosingTag ?? "";
+			}
+			// automatic expansion for everything inside braces
+			else if (pattern[advance] == '{')
+			{
+#if false
+				if (FindMatchingBracesScope(pattern.Substring(advance), out string innerExpr, out int innerAdvance))
 				{
-					i += advance;
+					advance += innerAdvance;
 				}
 				else
 				{
@@ -259,10 +456,10 @@ namespace Shellbent.Utilities
 					result = innerExpr.Split(' ')
 						.Select(x =>
 						{
-							var resolver = state.Resolvers.FirstOrDefault(r => r.Applicable(x));
+							var resolver = state.vsState.Resolvers.FirstOrDefault(r => r.Applicable(x));
 							if (resolver != null)
 							{
-								var resolveResult = resolver.Resolve(state, x);
+								var resolveResult = resolver.Resolve(state.vsState, x);
 								if (!string.IsNullOrEmpty(resolveResult))
 									return resolveResult;
 								else
@@ -277,41 +474,79 @@ namespace Shellbent.Utilities
 				{
 					result = "";
 				}
+#endif
 			}
-
 			// find identifier
-			else if (ExtensionMethods.RegexMatches(pattern.Substring(i), @"[a-z][a-z0-9-]*", out Match m))
+			else if (ExtensionMethods.RegexMatches(pattern.Substring(advance), @"\G([a-z][a-z0-9-]*)([!?])?", out Match m))
 			{
 				var idenExpr = m.Groups[0].Value;
 
-				i += idenExpr.Length;
+				advance += idenExpr.Length;
 
-				if (i != pattern.Length && pattern[i] == '(')
+				var identifier = m.Groups[1].Value;
+
+				var transformedTag = state.vsState.Resolvers
+					.FirstOrDefault(x => x.Applicable(identifier))
+					?.Resolve(state.vsState, identifier);
+
+				// default case: the transformed-tag, or the unresolved version
+				result = transformedTag;
+
+				if (advance == pattern.Length)
+				{
+					// nop
+				}
+				// predicate case
+				else if (m.Groups[2].Success)
+				{
+					++advance;
+
+					bool trueComparison = m.Groups[2].Value == "?";
+
+					FindMatchingBracesScope(pattern.Substring(advance), out int innerAdvance);
+
+					// predicate failed, skip braces
+					if (string.IsNullOrEmpty(transformedTag) != trueComparison)
+					{
+						advance += innerAdvance;
+						result = "";
+					}
+					// predicate succeeded, parse inner scope as normal (with updated '$' identifier)
+					else
+					{
+						ParsingState substate = new ParsingState(state.vsState, transformedTag, state.consuming);
+						ParseImpl(substate, pattern.Substring(advance, innerAdvance), out result, out int _);
+						advance += innerAdvance;
+					}
+				}
+				// function-call
+				else if (pattern[advance] == '(')
 				{
 					var argExpr = new string(pattern
-						.Substring(i)
+						.Substring(advance)
 						.TakeWhile(x => x != ')')
 						.ToArray());
 
-					i += argExpr.Length;
-					if (i != pattern.Length && pattern[i] == ')')
+					advance += argExpr.Length;
+					if (advance != pattern.Length && pattern[advance] == ')')
 					{
-						++i;
+						++advance;
 						argExpr += ')';
 					}
 
 					idenExpr += argExpr;
-				}
 
-				result = state.Resolvers
-					.FirstOrDefault(x => x.Applicable(idenExpr))
-					?.Resolve(state, idenExpr)
-					?? idenExpr;
+					// update result with full resolution w/ function call
+					result = state.vsState.Resolvers
+						.FirstOrDefault(x => x.Applicable(idenExpr))
+						?.Resolve(state.vsState, idenExpr);
+				}
 			}
 			else
 			{
-				result = "";
+				result = state.enclosingTag;
 			}
+
 			return true;
 		}
 	}
