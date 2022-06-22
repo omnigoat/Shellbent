@@ -499,24 +499,28 @@ namespace Shellbent.Utilities
 				// predicate case
 				else if (m.Groups[2].Success)
 				{
-					++advance;
-
 					bool trueComparison = m.Groups[2].Value == "?";
 
-					FindMatchingBracesScope(pattern.Substring(advance), out int innerAdvance);
+					if (!FindMatchingBracesScope(pattern.Substring(advance), out int innerAdvance))
+						return false;
 
 					// predicate failed, skip braces
-					if (string.IsNullOrEmpty(transformedTag) != trueComparison)
+					if (string.IsNullOrEmpty(transformedTag) == trueComparison)
 					{
 						advance += innerAdvance;
 						result = "";
 					}
 					// predicate succeeded, parse inner scope as normal (with updated '$' identifier)
+					else if (innerAdvance >= 2)
+					{
+						// make sure we only parse inbetween (and _not_ including) the braces
+						ParsingState substate = new ParsingState(state.vsState, transformedTag, state.consuming);
+						ParseImpl(substate, pattern.Substring(advance + 1, innerAdvance - 2), out result, out int _);
+						advance += innerAdvance;
+					}
 					else
 					{
-						ParsingState substate = new ParsingState(state.vsState, transformedTag, state.consuming);
-						ParseImpl(substate, pattern.Substring(advance, innerAdvance), out result, out int _);
-						advance += innerAdvance;
+						return false;
 					}
 				}
 				// function-call

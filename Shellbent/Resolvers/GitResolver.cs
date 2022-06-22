@@ -68,6 +68,9 @@ namespace Shellbent.Resolvers
 				case "git-remote-push": return gitRemotePush;
 				case "git-fetch-ahead": return gitFetchAhead;
 				case "git-fetch-behind": return gitFetchBehind;
+
+				case "has-diverged": return ResolveHasDiverged(tag);
+
 				case "git-fetch-ahead-behind":
 					{
 						if (string.IsNullOrEmpty(gitFetchAhead) && string.IsNullOrEmpty(gitFetchBehind))
@@ -82,6 +85,40 @@ namespace Shellbent.Resolvers
 
 				default: return string.Empty;
 			}
+		}
+
+		private string ResolveHasDiverged(string tag)
+		{
+#if false
+			var view = ResolverUtils.ApplyFunction(tag, "has-diverged", (bits) =>
+	{
+		try
+		{
+			string remote = bits[0];
+
+					// split view into pieces
+			var joined = remote
+				.Select(x => x.TrimPrefix("+").TrimPrefix("-").TrimPrefix("//").Split('/'))
+				.Select(x => x.Skip(from).Take(count))
+				.Select(x => string.Join("/", x))
+				.FirstOrDefault();
+
+			return joined;
+		}
+		catch (Exception)
+		{
+		}
+
+		return default;
+
+	});
+
+			if (string.IsNullOrEmpty(view))
+				return null;
+			else
+				return view; 
+#endif
+			return "";
 		}
 
 		private void OnBeforeSolutionOpened(string solutionFilepath)
@@ -219,5 +256,8 @@ namespace Shellbent.Resolvers
 		private string gitRemoteFetch, gitRemotePush;
 		private string gitFetchAhead, gitFetchBehind;
 		private string gitPushAhead, gitPushBehind;
+
+		private Dictionary<string, Tuple<int, int>> remotesAndDivergences;
+
 	}
 }
