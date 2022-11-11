@@ -176,7 +176,7 @@ Tags are enabled by prefixing with `$`. Enclosing scopes are defined with braces
 # this case that tag is "ide-mode".
 
 pattern-group[git, solution]:
- - solution-opened: $git-branch - $solution-name?ide-mode{ $} - $ide-name [$git-sha]
+ - solution-opened: $git-branch - $solution-name$ide-mode?{ $} - $ide-name [$git-sha]
 ```
 
 A versionr setup
