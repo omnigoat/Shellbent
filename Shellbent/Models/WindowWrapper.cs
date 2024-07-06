@@ -81,7 +81,7 @@ namespace Shellbent.Models
 		public string TitleBarText;
 		public SolidColorBrush TitleBarForegroundBrush;
 		public SolidColorBrush TitleBarBackgroundBrush;
-		public bool? SearchBoxVisible;
+		public bool? QuickSearchVisible;
 
 		public List<TitleBarInfoBlockData> Infos;
 	}
@@ -97,36 +97,20 @@ namespace Shellbent.Models
 			Window = window;
 		}
 
-		public static WindowWrapper Make(string vsVersion, Window x)
+		public static WindowWrapper Make(string vsVersion, Window w)
 		{
 			try
 			{
-				if (IsMsvc2022(vsVersion))
+				if (IsMainWindow(w))
 				{
-					if (WindowWrapper2022MainWindow.IsSuitable(x))
-						return new WindowWrapper2022MainWindow(x);
-					else if (WindowWrapper2019ToolWindow.IsSuitable(x))
-						return new WindowWrapper2019ToolWindow(x);
-					else if (WindowWrapper2019ToolWindowExpanded.IsSuitable(x))
-						return new WindowWrapper2019ToolWindowExpanded(x);
-				}
-				else if (IsMsvc2019(vsVersion))
-				{
-					if (WindowWrapper2019MainWindow.IsSuitable(x))
-						return new WindowWrapper2019MainWindow(x);
-					else if (WindowWrapper2019ToolWindow.IsSuitable(x))
-						return new WindowWrapper2019ToolWindow(x);
-					else if (WindowWrapper2019ToolWindowExpanded.IsSuitable(x))
-						return new WindowWrapper2019ToolWindowExpanded(x);
+					if (IsMsvc2022(vsVersion))
+						return new Vs2022MainWindowWrapper(w);
+					else if (IsMsvc2019(vsVersion))
+						return new Vs2019MainWindowWrapper(w);
 				}
 				else
 				{
-					if (WindowWrapper2017MainWindow.IsSuitable(x))
-						return new WindowWrapper2017MainWindow(x);
-					else if (WindowWrapper2017ToolWindow.IsSuitable(x))
-						return new WindowWrapper2017ToolWindow(x);
-					else if (WindowWrapper2017ToolWindowExpanded.IsSuitable(x))
-						return new WindowWrapper2017ToolWindowExpanded(x);
+					return new ToolWindowWrapper(w);
 				}
 			}
 			catch
@@ -136,20 +120,20 @@ namespace Shellbent.Models
 			return null;
 		}
 
-
 		public Window Window { get; private set; }
 
-		public abstract void UpdateTitleBar(TitleBarData data);
+		public abstract void UpdateStyling(TitleBarData data);
 
-		private static bool IsMsvc2017(string str) => str.StartsWith("15");
-		private static bool IsMsvc2019(string str) => str.StartsWith("16");
-		private static bool IsMsvc2022(string str) => str.StartsWith("17");
+		protected static bool IsMainWindow(Window w) => w?.GetElement<UIElement>("MainWindowTitleBar") != null;
+		protected static bool IsMsvc2017(string str) => str.StartsWith("15");
+		protected static bool IsMsvc2019(string str) => str.StartsWith("16");
+		protected static bool IsMsvc2022(string str) => str.StartsWith("17");
 	}
 
 
 
 
-
+#if false
 	internal abstract class WindowWrapper2017 : WindowWrapper
 	{
 		public bool IsMainWindow => Window != null && Window == Application.Current.MainWindow;
@@ -158,7 +142,7 @@ namespace Shellbent.Models
 		{
 		}
 
-		public override void UpdateTitleBar(TitleBarData data)
+		public override void UpdateStyling(TitleBarData data)
 		{
 			// main-window title
 			if (IsMainWindow)
@@ -201,9 +185,8 @@ namespace Shellbent.Models
 		}
 
 		// cached UI elements
-		private UIElement cachedTitleBar;
-		protected UIElement TitleBar => cachedTitleBar ??
-			(cachedTitleBar = RetrieveTitleBar());
+		protected UIElement cachedTitleBar;
+		protected abstract UIElement TitleBar;
 
 		protected TextBlock cachedTitleBarTextBlock;
 		protected TextBlock TitleBarTextBlock => cachedTitleBarTextBlock ??
@@ -216,8 +199,6 @@ namespace Shellbent.Models
 		protected System.Reflection.PropertyInfo TitleBarForegroundProperty =>
 			TitleBarTextBlock.NullOr(x => x.GetType().GetProperty("Foreground"));
 
-
-		protected abstract UIElement RetrieveTitleBar();
 		protected abstract TextBlock RetrieveTitleBarTextBlock();
 	}
 
@@ -234,16 +215,11 @@ namespace Shellbent.Models
 		{
 		}
 
-		public override void UpdateTitleBar(TitleBarData data)
-		{
-			base.UpdateTitleBar(data);
-		}
+		protected override UIElement TitleBar =>
+			cachedTitleBar ??
+			(cachedTitleBar = Window
+				.GetElement<UIElement>("MainWindowTitleBar"));
 
-		protected override UIElement RetrieveTitleBar()
-		{
-			return Window
-				.GetElement<UIElement>("MainWindowTitleBar");
-		}
 
 		protected override TextBlock RetrieveTitleBarTextBlock()
 		{
@@ -252,53 +228,12 @@ namespace Shellbent.Models
 				?.GetElement<TextBlock>(null, 1);
 		}
 	}
+#endif
 
-	internal class WindowWrapper2017ToolWindowExpanded : WindowWrapper2017
+	internal class ToolWindowWrapper : WindowWrapper
 	{
-		public static bool IsSuitable(Window w)
-		{
-			if (WindowWrapper2017MainWindow.IsSuitable(w))
-				return false;
-
-			var title_bar = w
-				?.GetElement<UIElement>("TitleBarContainer")
-				?.GetElement<UIElement>("TitleBar");
-
-			return title_bar != null && VisualTreeHelper.GetChildrenCount(title_bar) > 0;
-		}
-
-		public WindowWrapper2017ToolWindowExpanded(Window window)
-			: base(window)
-		{ }
-
-		protected override UIElement RetrieveTitleBar()
-		{
-			return Window
-				.GetElement<UIElement>("TitleBar")
-				?.GetElement<Grid>();
-		}
-
-		protected override TextBlock RetrieveTitleBarTextBlock()
-		{
-			return TitleBar?.GetElement<TextBlock>("WindowTitle");
-		}
-	}
-
-	internal class WindowWrapper2017ToolWindow : WindowWrapper2017
-	{
-		public static bool IsSuitable(Window w)
-		{
-			if (w?.GetElement<UIElement>("MainWindowTitleBar") != null)
-				return false;
-
-			var title_bar = w
-				?.GetElement<UIElement>("TitleBarContainer")
-				?.GetElement<UIElement>("TitleBar");
-
-			return title_bar != null && VisualTreeHelper.GetChildrenCount(title_bar) == 0;
-		}
-
-		public WindowWrapper2017ToolWindow(Window w) : base(w)
+		public ToolWindowWrapper(Window w)
+			: base(w)
 		{
 			Window.Activated += Window_ActivationChanged;
 			Window.Deactivated += Window_ActivationChanged;
@@ -312,19 +247,7 @@ namespace Shellbent.Models
 			UpdateToolWindowColors(titleColor.Value);
 		}
 
-		protected override UIElement RetrieveTitleBar()
-		{
-			return Window
-				.GetElement<UIElement>("TitleBar")
-				?.GetElement<Grid>();
-		}
-
-		protected override TextBlock RetrieveTitleBarTextBlock()
-		{
-			return null;
-		}
-
-		public override void UpdateTitleBar(TitleBarData data)
+		public override void UpdateStyling(TitleBarData data)
 		{
 			titleColor = data.TitleBarBackgroundBrush?.Color;
 
@@ -335,7 +258,7 @@ namespace Shellbent.Models
 			else
 			{
 				ToolWindowBorder?.ClearValue(Border.BackgroundProperty);
-				DragHandle.ClearValue(Shape.FillProperty);
+				DragHandle?.ClearValue(Shape.FillProperty);
 			}
 		}
 
@@ -357,7 +280,7 @@ namespace Shellbent.Models
 
 				ToolWindowBorder?.SetValue(Border.BackgroundProperty, brush);
 				ToolWindowBorder?.SetValue(Border.BorderBrushProperty, brush);
-				DragHandle.SetValue(Shape.FillProperty, GenerateFillBrush(brightBrush));
+				DragHandle?.SetValue(Shape.FillProperty, GenerateFillBrush(brightBrush));
 			}
 		}
 
@@ -369,6 +292,19 @@ namespace Shellbent.Models
 			fillBrush.Drawing = geom;
 			return fillBrush;
 		}
+
+
+		private UIElement cachedTitleBar;
+		private UIElement TitleBar =>
+			cachedTitleBar ??
+			(cachedTitleBar = Window
+				.GetElement<UIElement>("TitleBar"));
+
+		private UIElement cachedTitleBarTextBlock;
+		private UIElement TitleBarTextBlock =>
+			cachedTitleBarTextBlock ??
+			(cachedTitleBarTextBlock = TitleBar
+				?.GetElement<TextBlock>("WindowTitle"));
 
 		private Border cachedToolWindowBorder;
 		private Border ToolWindowBorder => cachedToolWindowBorder ??
@@ -391,14 +327,9 @@ namespace Shellbent.Models
 
 	
 
-	internal class WindowWrapper2019MainWindow : WindowWrapper2017MainWindow
+	internal class Vs2019MainWindowWrapper : WindowWrapper
 	{
-		public new static bool IsSuitable(Window w)
-		{
-			return w?.GetElement<UIElement>("MainWindowTitleBar") != null;
-		}
-
-		public WindowWrapper2019MainWindow(Window window)
+		public Vs2019MainWindowWrapper(Window window)
 			: base(window)
 		{
 			Window.Deactivated += Window_ActivationChanged;
@@ -407,42 +338,23 @@ namespace Shellbent.Models
 
 		private void Window_ActivationChanged(object sender, EventArgs e)
 		{
-			if (Window.IsActive)
-			{
-				foreach (var block in synthesizedInfoBlocks)
-				{
-					var textblock = block.Element?.GetElement<TextBlock>();
-					if (textblock == null)
-						continue;
+			Func<InfoBlock, Brush> makeBlockForegroundBrush = (InfoBlock block) => Window.IsActive
+				? new SolidColorBrush(block.TextColor.Value)
+				: WindowUtils.CalculateRelativeColorBrush(block.TextColor.Value, 0.75f);
 
-					if (!block.TextColor.HasValue)
-					{
-						textblock.ClearValue(TextBlock.ForegroundProperty);
-					}
-					else
-					{
-						textblock.SetValue(TextBlock.ForegroundProperty, new SolidColorBrush(block.TextColor.Value));
-					}
+			foreach (var block in synthesizedInfoBlocks)
+			{
+				var textblock = block.Element?.GetElement<TextBlock>();
+				if (textblock == null)
+					continue;
+
+				if (!block.TextColor.HasValue)
+				{
+					textblock.ClearValue(TextBlock.ForegroundProperty);
 				}
-			}
-			else
-			{
-				foreach (var block in synthesizedInfoBlocks)
+				else
 				{
-					var textblock = block.Element?.GetElement<TextBlock>();
-					if (textblock == null)
-						continue;
-
-					if (!block.TextColor.HasValue)
-					{
-						textblock.ClearValue(TextBlock.ForegroundProperty);
-					}
-					else
-					{
-						var darkBrush = WindowUtils.CalculateRelativeColorBrush(block.TextColor.Value, 0.75f);
-						textblock.SetValue(TextBlock.ForegroundProperty, darkBrush);
-					}
-
+					textblock.SetValue(TextBlock.ForegroundProperty, makeBlockForegroundBrush(block));
 				}
 			}
 		}
@@ -467,13 +379,34 @@ namespace Shellbent.Models
 			public readonly TextBlock TextBox;
 		}
 
-		public override void UpdateTitleBar(TitleBarData data)
+		public override void UpdateStyling(TitleBarData data)
 		{
-			base.UpdateTitleBar(data);
+			// update text, which no longer gets shown in 2019+ on the GUI,
+			// but is viewable when you hover over the window on the Taskbar
+			{
+				if (string.IsNullOrEmpty(data.TitleBarText))
+				{
+					// the main-window's title property is by default bound to
+					// a style, so just clear the local value to get vanilla MSVC
+					Window.ClearValue(Window.TitleProperty);
+				}
+				else if (Window.Title != data.TitleBarText)
+				{
+					Window.Title = data.TitleBarText;
+				}
+			}
 
-			// extend background colour to the menubar
-			TitleBarVsMenu?.SetValue(Panel.BackgroundProperty, data.TitleBarBackgroundBrush);
-
+			// update the background to title-bar
+			if (data.TitleBarBackgroundBrush == null)
+			{
+				TitleBar?.ClearValue(Border.BackgroundProperty);
+				TitleBarVsMenu?.ClearValue(Panel.BackgroundProperty);
+			}
+			else
+			{
+				TitleBar?.SetValue(Border.BackgroundProperty, data.TitleBarBackgroundBrush);
+				TitleBarVsMenu?.SetValue(Panel.BackgroundProperty, data.TitleBarBackgroundBrush);
+			}
 
 			// if we have an override background-colour, then calculate a nice default
 			// background-colour for the blocks, and apply it to the prime block
@@ -548,10 +481,11 @@ namespace Shellbent.Models
 
 		protected List<InfoBlock> synthesizedInfoBlocks = new List<InfoBlock>();
 
-		protected override TextBlock RetrieveTitleBarTextBlock()
-		{
-			return TitleBar?.GetElement<TextBlock>("TextBlock_1");
-		}
+		private UIElement cachedTitleBar;
+		protected UIElement TitleBar =>
+			cachedTitleBar ??
+			(cachedTitleBar = Window
+				.GetElement<UIElement>("MainWindowTitleBar"));
 
 		private UIElement cachedVsMenu;
 		protected UIElement TitleBarVsMenu => cachedVsMenu ??
@@ -589,7 +523,7 @@ namespace Shellbent.Models
 					Padding = new Thickness(border.Padding.Left, border.Padding.Top, border.Padding.Right, border.Padding.Bottom),
 					DataContext = border.DataContext,
 					HorizontalAlignment = border.HorizontalAlignment,
-					ToolTip = string.IsNullOrEmpty(data.AltText) ? null : data.AltText,
+					ToolTip = data.AltText,
 
 					// just a little more separation than 1px
 					Margin = new Thickness(2, 0, 0, 0),
@@ -644,70 +578,83 @@ namespace Shellbent.Models
 		
 	}
 
-
-	// these two actually had no differences
-	internal class WindowWrapper2019ToolWindowExpanded : WindowWrapper2017ToolWindowExpanded
+	internal class Vs2022MainWindowWrapper : Vs2019MainWindowWrapper
 	{
-		public new static bool IsSuitable(Window w)
+		public Vs2022MainWindowWrapper(Window window) : base(window)
 		{
-			return WindowWrapper2017ToolWindowExpanded.IsSuitable(w);
+			TitleBar.LayoutUpdated += TitleBar_LayoutUpdated;
 		}
 
-		public WindowWrapper2019ToolWindowExpanded(Window window)
-			: base(window)
-		{ }
-	}
-
-	internal class WindowWrapper2019ToolWindow : WindowWrapper2017ToolWindow
-	{
-		public new static bool IsSuitable(Window w)
+		private void TitleBar_LayoutUpdated(object sender, EventArgs e)
 		{
-			return WindowWrapper2017ToolWindow.IsSuitable(w);
-		}
+			// this property is only useful when this extension loads before the
+			// quicksearch extension does. so we'll listen to the TitleBar for
+			// layout events, identify when the quicksearch extension is loaded
+			// and its UI inserted, and immediately update its visiblity
 
-		public WindowWrapper2019ToolWindow(Window window)
-			: base(window)
-		{ }
-	}
-
-
-	internal class WindowWrapper2022MainWindow : WindowWrapper2019MainWindow
-	{
-		public WindowWrapper2022MainWindow(Window window) : base(window)
-		{
-		}
-
-		public override void UpdateTitleBar(TitleBarData data)
-		{
-			base.UpdateTitleBar(data);
-
-			if ((!data.SearchBoxVisible.HasValue || data.SearchBoxVisible.Value) && !searchBoxVisible)
+			if (quickSearchLoaded == false && SearchBoxLoaded)
 			{
-				SearchBoxGridParent.Children.Insert(1, SearchBoxGrid);
-				SearchBoxGridParent.UpdateLayout();
-				searchBoxVisible = true;
-			}
-			else if (data.SearchBoxVisible.HasValue && !data.SearchBoxVisible.Value && searchBoxVisible)
-			{
-				SearchBoxGridParent.Children.Remove(SearchBoxGrid);
-				SearchBoxGridParent.UpdateLayout();
-				searchBoxVisible = false;
+				UpdateQuickSearch(quickSearchVisibilityRequired.GetValueOrDefault(true));
+
+				// once we've triggered once, we can _assume_ that the quick-search
+				// box won't be removed/added again
+				TitleBar.LayoutUpdated -= TitleBar_LayoutUpdated;
 			}
 		}
 
-		private bool searchBoxVisible = true;
+		private void UpdateQuickSearch(bool visibilityDesired)
+		{
+			quickSearchLoaded = SearchBoxLoaded;
+			if (!quickSearchLoaded)
+				return;
 
-		private Grid cachedSearchBoxGridParent;
-		protected Grid SearchBoxGridParent =>
-			cachedSearchBoxGridParent ??
-			(cachedSearchBoxGridParent = TitleBar
-				?.GetElement<Grid>());
+			if (visibilityDesired && !quickSearchVisible)
+			{
+				FrameControlContainer.MinWidth = cachedFrameControlContainerMinWidth;
+				FrameControlContainer.MaxWidth = cachedFrameControlContainerMaxWidth;
+			}
+			else if (!visibilityDesired && quickSearchVisible)
+			{
+				cachedFrameControlContainerMinWidth = FrameControlContainer.MinWidth;
+				cachedFrameControlContainerMaxWidth = FrameControlContainer.MaxWidth;
 
-		private Grid cachedSearchBoxGrid;
-		protected Grid SearchBoxGrid =>
-			cachedSearchBoxGrid ??
-			(cachedSearchBoxGrid = SearchBoxGridParent
-				?.GetChildren<Grid>().ElementAt(1));
+				FrameControlContainer.MinWidth = 0;
+				FrameControlContainer.MaxWidth = 0;
+			}
+		}
+
+		public override void UpdateStyling(TitleBarData data)
+		{
+			base.UpdateStyling(data);
+
+			quickSearchVisibilityRequired = data.QuickSearchVisible;
+			bool visibilityDesired = quickSearchVisibilityRequired.GetValueOrDefault(true);
+			UpdateQuickSearch(visibilityDesired);
+		}
+
+		// current assumed status of quick-search visibility
+		private bool quickSearchVisible =>
+			(FrameControlContainer?.MinWidth ?? 0.0) > 0.0;
+
+		// we must cache the value from the .shellbent file, so that if we were
+		// the first extension loaded, when the quick-search extension is loaded
+		// next and adds its control, we can immediately apply the cached value.
+		private bool? quickSearchVisibilityRequired;
+
+		// cached dimensinos for restoring searchbox, as for some reason
+		// whoever wrote it just set the values locally on the control
+		private double cachedFrameControlContainerMinWidth = 0;
+		private double cachedFrameControlContainerMaxWidth = 0;
+
+		private bool quickSearchLoaded = false;
+		protected bool SearchBoxLoaded =>
+			FrameControlContainer?.GetElement<UIElement>("PART_SearchButton") != null;
+
+		private FrameworkElement cachedFrameControlContainer;
+		protected FrameworkElement FrameControlContainer =>
+			cachedFrameControlContainer ??
+			(cachedFrameControlContainer = TitleBar
+				?.GetElement<FrameworkElement>("PART_TitleBarLeftFrameControlContainer"));
 	}
 
 

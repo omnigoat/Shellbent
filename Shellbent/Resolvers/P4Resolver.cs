@@ -213,7 +213,7 @@ namespace Shellbent.Resolvers
 				p4Views = clientInfo
 					.SplitIntoLines()
 					.Where(x => x.StartsWith("... View"))
-					.Select(x => Regex.Match(x, @"... View[0-9]+ (.+)"))
+					.Select(x => Regex.Match(x, @"\.\.\. View[0-9]+ (.+)"))
 					.Where(r => r.Success)
 					.Select(r => ExtractFirstView(r.Groups[1].Value))
 					.ToList();

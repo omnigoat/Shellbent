@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
     <Metadata>
-        <Identity Id="Shellbent.684c38e6-49bd-4989-b4fb-7d7c9003b3aa" Version="1.5.1" Language="en-US" Publisher="Jonathan Runting" />
+        <Identity Id="Shellbent.684c38e6-49bd-4989-b4fb-7d7c9003b3aa" Version="1.6" Language="en-US" Publisher="Jonathan Runting" />
         <DisplayName>Shellbent</DisplayName>
         <Description xml:space="preserve">Customise the Title Bar based off the current state of your source control, the current solution, and more.</Description>
         <Icon>Resources\ShellbentPackage.ico</Icon>

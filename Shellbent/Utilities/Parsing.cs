@@ -54,7 +54,7 @@ namespace Shellbent.Utilities
 		public static string ParseFormatString(VsState state, string pattern)
 		{
 			if (pattern == null)
-				return string.Empty;
+				return null;
 
 			try
 			{
@@ -79,7 +79,7 @@ namespace Shellbent.Utilities
 				System.Console.WriteLine("Exception: " + e.Message);
 			}
 
-			return string.Empty;
+			return null;
 		}
 
 		private static bool ParseImpl(ParsingState state, string pattern, out string transformed, out int advance)

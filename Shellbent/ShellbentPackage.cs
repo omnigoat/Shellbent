@@ -32,6 +32,7 @@ namespace Shellbent
 		protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
 		{
 			await base.InitializeAsync(cancellationToken, progress);
+			await JoinableTaskFactory.SwitchToMainThreadAsync();
 
 			// initialize the DTE and bind events
 			DTE = await GetServiceAsync(typeof(DTE)) as DTE;
@@ -67,10 +68,7 @@ namespace Shellbent
 			}
 
 			// a solution may already be open
-			if (await IsSolutionLoadedAsync() is string solutionFilepath && !string.IsNullOrEmpty(solutionFilepath))
-			{
-				solutionModel.SetOpenSolution(solutionFilepath);
-			}
+			solutionModel.EvaluateSolutionState();
 		}
 
 		//=========================================================
@@ -110,7 +108,7 @@ namespace Shellbent
 				// update all models
 				foreach (var x in knownWindowModels)
 				{
-					x.UpdateTitleBar(TitleBarData);
+					x.UpdateStyling(TitleBarData);
 				}
 			});
 		}
@@ -119,22 +117,6 @@ namespace Shellbent
 		//=========================================================
 		// utilities
 		//=========================================================
-		private async Task<string> IsSolutionLoadedAsync()
-		{
-			var solService = await GetServiceAsync(typeof(SVsSolution)) as IVsSolution;
-			await JoinableTaskFactory.SwitchToMainThreadAsync();
-
-			ErrorHandler.ThrowOnFailure(solService.GetProperty((int)__VSPROPID.VSPROPID_IsSolutionOpen, out object value));
-			if (value is bool open && open)
-			{
-				ErrorHandler.ThrowOnFailure(solService.GetProperty((int)__VSPROPID.VSPROPID_SolutionFileName, out object filename));
-				if (filename is string file && !string.IsNullOrEmpty(file))
-					return file;
-			}
-
-			return null;
-		}
-
 		private Models.TitleBarInfoBlockData MakeTitleBarInfoBlockData(VsState state, TitleBarSetting.BlockSettings bs)
 			=> new Models.TitleBarInfoBlockData()
 			{
@@ -170,10 +152,10 @@ namespace Shellbent
 						Solution = DTE.Solution
 					};
 
-					acc.TitleBarText = acc.TitleBarText ?? Parsing.ParseFormatString(state, x.TitleBarCaption);
+					acc.TitleBarText = Parsing.ParseFormatString(state, x.TitleBarCaption) ?? acc.TitleBarText;
 					acc.TitleBarForegroundBrush = acc.TitleBarForegroundBrush ?? x.TitleBarForegroundBrush;
 					acc.TitleBarBackgroundBrush = acc.TitleBarBackgroundBrush ?? x.TitleBarBackgroundBrush;
-					acc.SearchBoxVisible = acc.SearchBoxVisible ?? x.SearchBox;
+					acc.QuickSearchVisible = acc.QuickSearchVisible ?? x.QuickSearch;
 
 					acc.Infos = acc.Infos ?? x.Blocks
 						?.Where(b => b.Predicates.All(PredicateIsSatisfied))
