@@ -13,6 +13,8 @@ using System.Windows.Data;
 using Shellbent.Utilities;
 using System.Windows.Shapes;
 using stdole;
+using System.ComponentModel;
+using System.Reflection;
 
 namespace Shellbent.Models
 {
@@ -82,6 +84,7 @@ namespace Shellbent.Models
 		public SolidColorBrush TitleBarForegroundBrush;
 		public SolidColorBrush TitleBarBackgroundBrush;
 		public bool? QuickSearchVisible;
+		public bool? ColorizeWindowGlow;
 
 		public List<TitleBarInfoBlockData> Infos;
 	}
@@ -95,6 +98,8 @@ namespace Shellbent.Models
 		public WindowWrapper(Window window)
 		{
 			Window = window;
+
+			OriginalActiveGlowColor = Window.GetType().GetProperty("ActiveGlowColor")?.GetValue(Window) as Color?;
 		}
 
 		public static WindowWrapper Make(string vsVersion, Window w)
@@ -122,6 +127,8 @@ namespace Shellbent.Models
 
 		public Window Window { get; private set; }
 
+		protected Color? OriginalActiveGlowColor { get; private set; }
+
 		public abstract void UpdateStyling(TitleBarData data);
 
 		protected static bool IsMainWindow(Window w) => w?.GetElement<UIElement>("MainWindowTitleBar") != null;
@@ -131,104 +138,6 @@ namespace Shellbent.Models
 	}
 
 
-
-
-#if false
-	internal abstract class WindowWrapper2017 : WindowWrapper
-	{
-		public bool IsMainWindow => Window != null && Window == Application.Current.MainWindow;
-
-		public WindowWrapper2017(Window window) : base(window)
-		{
-		}
-
-		public override void UpdateStyling(TitleBarData data)
-		{
-			// main-window title
-			if (IsMainWindow)
-			{
-				if (string.IsNullOrEmpty(data.TitleBarText))
-				{
-					// the main-window's title property is by default bound to
-					// a style, so just clear the local value to get vanilla MSVC
-					Window.ClearValue(Window.TitleProperty);
-				}
-				else if (Window.Title != data.TitleBarText)
-				{
-					Window.Title = data.TitleBarText;
-				}
-			}
-
-			// title-bar colors
-			if (TitleBar != null)
-			{
-				// clearing the value returns us to vanilla msvc
-				if (data.TitleBarBackgroundBrush == null)
-				{
-					TitleBar.ClearValue(Border.BackgroundProperty);
-				}
-				else
-				{
-					TitleBar.SetValue(Border.BackgroundProperty, data.TitleBarBackgroundBrush);
-				}
-
-				// tool-windows don't have a title-bar-text-block
-				if (TitleBarTextBlock != null)
-				{
-					var foregroundBrush = data.TitleBarForegroundBrush ?? WindowUtils.CalculateForegroundBrush(data.TitleBarBackgroundBrush?.Color);
-					if (foregroundBrush != null)
-						TitleBarTextBlock.SetValue(TextBlock.ForegroundProperty, foregroundBrush);
-					else
-						TitleBarTextBlock.ClearValue(TextBlock.ForegroundProperty);
-				}
-			}
-		}
-
-		// cached UI elements
-		protected UIElement cachedTitleBar;
-		protected abstract UIElement TitleBar;
-
-		protected TextBlock cachedTitleBarTextBlock;
-		protected TextBlock TitleBarTextBlock => cachedTitleBarTextBlock ??
-			(cachedTitleBarTextBlock = RetrieveTitleBarTextBlock());
-
-		// foreground/background properties
-		protected System.Reflection.PropertyInfo TitleBarBackgroundProperty =>
-			TitleBar.NullOr(x => x.GetType().GetProperty("Background"));
-
-		protected System.Reflection.PropertyInfo TitleBarForegroundProperty =>
-			TitleBarTextBlock.NullOr(x => x.GetType().GetProperty("Foreground"));
-
-		protected abstract TextBlock RetrieveTitleBarTextBlock();
-	}
-
-
-
-	internal class WindowWrapper2017MainWindow : WindowWrapper2017
-	{
-		public static bool IsSuitable(Window w)
-		{
-			return w?.GetElement<UIElement>("MainWindowTitleBar") != null;
-		}
-
-		public WindowWrapper2017MainWindow(Window w) : base(w)
-		{
-		}
-
-		protected override UIElement TitleBar =>
-			cachedTitleBar ??
-			(cachedTitleBar = Window
-				.GetElement<UIElement>("MainWindowTitleBar"));
-
-
-		protected override TextBlock RetrieveTitleBarTextBlock()
-		{
-			return TitleBar
-				?.GetElement<DockPanel>()
-				?.GetElement<TextBlock>(null, 1);
-		}
-	}
-#endif
 
 	internal class ToolWindowWrapper : WindowWrapper
 	{
@@ -241,46 +150,55 @@ namespace Shellbent.Models
 
 		private void Window_ActivationChanged(object sender, EventArgs e)
 		{
-			if (!titleColor.HasValue)
-				return;
-
-			UpdateToolWindowColors(titleColor.Value);
+			UpdateToolWindowColors(titleColor);
 		}
 
 		public override void UpdateStyling(TitleBarData data)
 		{
 			titleColor = data.TitleBarBackgroundBrush?.Color;
+			colorizeWindowGlow = data.ColorizeWindowGlow ?? false;
 
-			if (data.TitleBarBackgroundBrush != null)
-			{
-				UpdateToolWindowColors(data.TitleBarBackgroundBrush.Color);
-			}
-			else
-			{
-				ToolWindowBorder?.ClearValue(Border.BackgroundProperty);
-				DragHandle?.ClearValue(Shape.FillProperty);
-			}
+			UpdateToolWindowColors(data.TitleBarBackgroundBrush?.Color);
 		}
 
-		private void UpdateToolWindowColors(Color color)
+		private void UpdateToolWindowColors(Color? maybeColor)
 		{
-			if (Window.IsActive)
-			{
-				var brightBrush = WindowUtils.CalculateHighlightBrush(color, 0.5f);
-				var brighterBrush = WindowUtils.CalculateHighlightBrush(brightBrush.Color, 0.5f);
-
-				ToolWindowBorder?.SetValue(Border.BackgroundProperty, brightBrush);
-				ToolWindowBorder?.SetValue(Border.BorderBrushProperty, brightBrush);
-				DragHandle?.SetValue(Shape.FillProperty, GenerateFillBrush(brighterBrush));
-			}
-			else
+			if (maybeColor is Color color)
 			{
 				var brush = new SolidColorBrush(color);
 				var brightBrush = WindowUtils.CalculateHighlightBrush(color, 0.5f);
 
+				// background
 				ToolWindowBorder?.SetValue(Border.BackgroundProperty, brush);
 				ToolWindowBorder?.SetValue(Border.BorderBrushProperty, brush);
-				DragHandle?.SetValue(Shape.FillProperty, GenerateFillBrush(brightBrush));
+
+				// the drag-handle is conditionally present, but seems to derive its
+				// colour from somewhere else, so we must conditionally paint it
+				if (Window.IsActive)
+					DragHandle?.SetValue(Shape.FillProperty, GenerateFillBrush(brightBrush));
+				else
+					DragHandle?.ClearValue(Shape.FillProperty);
+
+				if (colorizeWindowGlow)
+				{
+					Window.GetType().GetProperty("ActiveGlowColor")
+						?.SetValue(Window, brightBrush.Color);
+				}
+				else
+				{
+					Window.GetType().GetProperty("ActiveGlowColor")
+						?.SetValue(Window, OriginalActiveGlowColor);
+				}
+			}
+			else
+			{
+				ToolWindowBorder?.ClearValue(Border.BackgroundProperty);
+				ToolWindowBorder?.ClearValue(Border.BorderBrushProperty);
+
+				DragHandle?.ClearValue(Shape.FillProperty);
+
+				Window.GetType().GetProperty("ActiveGlowColor")
+					?.SetValue(Window, OriginalActiveGlowColor);
 			}
 		}
 
@@ -323,6 +241,7 @@ namespace Shellbent.Models
 			(cachedDragHandleBrush = (DragHandle?.Fill as DrawingBrush));
 
 		private Color? titleColor;
+		private bool colorizeWindowGlow = false;
 	}
 
 	
@@ -470,7 +389,19 @@ namespace Shellbent.Models
 					cachedTitleBarInfoGrid.UpdateLayout();
 				}
 			}
-			
+
+			// set the glow value for the window
+			if ((data.ColorizeWindowGlow ?? false) && WindowUtils.CalculateHighlightBrush(data.TitleBarBackgroundBrush?.Color, 0.5f) is SolidColorBrush glow)
+			{
+				Window.GetType().GetProperty("ActiveGlowColor")
+					?.SetValue(Window, glow.Color);
+			}
+			else
+			{
+				// thought there'd be an easier way to do this
+				Window.GetType().GetProperty("ActiveGlowColor")
+					?.SetValue(Window, OriginalActiveGlowColor);
+			}
 		}
 
 		protected struct InfoBlock
@@ -592,7 +523,7 @@ namespace Shellbent.Models
 			// layout events, identify when the quicksearch extension is loaded
 			// and its UI inserted, and immediately update its visiblity
 
-			if (quickSearchLoaded == false && SearchBoxLoaded)
+			if (SearchBoxLoaded)
 			{
 				UpdateQuickSearch(quickSearchVisibilityRequired.GetValueOrDefault(true));
 
@@ -604,8 +535,7 @@ namespace Shellbent.Models
 
 		private void UpdateQuickSearch(bool visibilityDesired)
 		{
-			quickSearchLoaded = SearchBoxLoaded;
-			if (!quickSearchLoaded)
+			if (!SearchBoxLoaded)
 				return;
 
 			if (visibilityDesired && !quickSearchVisible)
@@ -646,7 +576,6 @@ namespace Shellbent.Models
 		private double cachedFrameControlContainerMinWidth = 0;
 		private double cachedFrameControlContainerMaxWidth = 0;
 
-		private bool quickSearchLoaded = false;
 		protected bool SearchBoxLoaded =>
 			FrameControlContainer?.GetElement<UIElement>("PART_SearchButton") != null;
 
@@ -661,6 +590,15 @@ namespace Shellbent.Models
 
 	internal static class WindowUtils
 	{
+		public static DependencyProperty FindDependencyProperty(this DependencyObject target, string propName)
+		{
+			FieldInfo fInfo = target.GetType().GetField(propName, BindingFlags.Static | BindingFlags.FlattenHierarchy | BindingFlags.Public);
+
+			if (fInfo == null) return null;
+
+			return (DependencyProperty)fInfo.GetValue(null);
+		}
+
 		public static SolidColorBrush CalculateForegroundBrush(Color? color)
 		{
 			if (!color.HasValue)

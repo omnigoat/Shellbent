@@ -74,6 +74,9 @@ namespace Shellbent.Settings
 		public Color? TitleBarBackground;
 		public SolidColorBrush TitleBarBackgroundBrush => TitleBarBackground.NullOr(c => new SolidColorBrush(c));
 
+		[YamlMember(Alias = "colorize-window-glow")]
+		public bool? ColorizeWindowGlow;
+
 		[YamlMember(Alias = "quick-search")]
 		public bool? QuickSearch;
 

@@ -156,6 +156,7 @@ namespace Shellbent
 					acc.TitleBarForegroundBrush = acc.TitleBarForegroundBrush ?? x.TitleBarForegroundBrush;
 					acc.TitleBarBackgroundBrush = acc.TitleBarBackgroundBrush ?? x.TitleBarBackgroundBrush;
 					acc.QuickSearchVisible = acc.QuickSearchVisible ?? x.QuickSearch;
+					acc.ColorizeWindowGlow = acc.ColorizeWindowGlow ?? x.ColorizeWindowGlow;
 
 					acc.Infos = acc.Infos ?? x.Blocks
 						?.Where(b => b.Predicates.All(PredicateIsSatisfied))
